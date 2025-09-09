@@ -25,9 +25,12 @@
               "src/assets"
             ],
             "styles": [
-              "src/styles.css"
-            ],
-            "scripts": []
+  "node_modules/mapbox-gl/dist/mapbox-gl.css",
+  "node_modules/@fortawesome/fontawesome-free/css/all.min.css",
+  "src/styles.css"
+],
+            "scripts": [
+            ]
           },
           "configurations": {
             "production": {
@@ -94,5 +97,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": "97997c65-ebb1-4d46-8e12-c9c42f4e8851"
   }
 }
