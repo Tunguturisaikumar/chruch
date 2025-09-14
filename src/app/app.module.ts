@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AppComponent } from './app.component';
 import { GlobeViewComponent } from './globe-view/globe-view.component';
 import { CrushDetailsDialogComponent } from './crush-details-dialog/crush-details-dialog.component';
+import { FormsModule } from '@angular/forms';
 
 @NgModule({
   declarations: [
@@ -18,7 +19,8 @@ import { CrushDetailsDialogComponent } from './crush-details-dialog/crush-detail
     BrowserModule,
     BrowserAnimationsModule,
     MatDialogModule,
-    MatButtonModule
+    MatButtonModule,
+    FormsModule
   ],
   providers: [],
   bootstrap: [AppComponent]
