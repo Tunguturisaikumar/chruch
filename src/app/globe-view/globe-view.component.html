@@ -1,3 +1,9 @@
+<!-- Loader Overlay -->
+<div class="loader-overlay" *ngIf="isLoading">
+  <div class="spinner"></div>
+  <p>Loading Globe...</p>
+</div>
+<!-- globe -->
 <div class="header">
   <div class="logo">
     <i class="fas fa-church"></i> Church
@@ -7,22 +13,13 @@
   </div>
 </div>
 
-<!-- Control Panel -->
 <div class="controls">
-  <!-- Speed Control -->
-  <!-- <label>
-    🌍 Rotation Speed: {{ rotationSpeed }}
-    <input type="range" min="0.1" max="1" step="0.1" [(ngModel)]="rotationSpeed">
-  </label> -->
-
-  <!-- Duration Control -->
   <label>
     ⏱️ Rotation Duration (ms): {{ rotationDuration }}
     <input type="range" min="500" max="10000" step="500" [(ngModel)]="rotationDuration">
   </label>
 
   <button (click)="applyChanges()">Apply Changes</button>
-  <!-- Zoom -->
   <button (click)="zoomIn()">➕ Zoom In</button>
   <button (click)="zoomOut()">➖ Zoom Out</button>
 </div>

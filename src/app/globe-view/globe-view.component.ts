@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
+import { HttpClient } from '@angular/common/http';
 
 interface Location {
   name: string;
@@ -16,58 +17,41 @@ interface Location {
 })
 export class GlobeViewComponent implements OnInit, OnDestroy {
   map!: mapboxgl.Map;
-
-  churches: Location[] = [
-    {
-      name: 'St. Patrick’s Cathedral',
-      description: 'Famous church in New York',
-      coordinates: [-73.975, 40.758],
-      personName: 'Father John Doe',
-      personPhoto: 'assets/person.jpg'
-    },
-    {
-      name: 'Westminster Abbey',
-      description: 'Historic church in London',
-      coordinates: [-0.1273, 51.4993],
-      personName: 'Bishop Richard Roe',
-      personPhoto: 'assets/person1.jpg'
-    },
-    {
-      name: 'St. Mary’s Cathedral',
-      description: 'Famous church in Tokyo',
-      coordinates: [139.715, 35.693],
-      personName: 'Archbishop Kenji Tanaka',
-      personPhoto: 'assets/person.jpg'
-    },
-    {
-      name: 'Notre Dame Cathedral',
-      description: 'Iconic Gothic cathedral in Paris',
-      coordinates: [2.3499, 48.853],
-      personName: 'Father Pierre Dubois',
-      personPhoto: 'assets/person1.jpg'
-    },
-    {
-      name: 'St. Peter’s Basilica',
-      description: 'Major basilica in Vatican City',
-      coordinates: [12.4534, 41.9029],
-      personName: 'Pope Francis',
-      personPhoto: 'assets/person.jpg'
-    }
-  ];
-
+  churches: Location[] = []
   rotationDuration: number = 2000;
   churchMarkers: mapboxgl.Marker[] = [];
   private animationId: number | null = null;
   private bearing = 0;
   private slideshowTimeout: any = null;
-
+  isLoading: boolean = true;
   private readonly INITIAL_CENTER: [number, number] = [0, 20];
   private readonly INITIAL_ZOOM: number = 1.5;
 
-  constructor(private ngZone: NgZone) {}
+  constructor(private ngZone: NgZone, private http: HttpClient) { }
 
   ngOnInit(): void {
     this.initializeMap();
+
+    const apiUrl = 'https://server-486354915183.europe-west1.run.app';
+    this.http.get<any[]>(apiUrl).subscribe({
+      next: (data) => {
+        // Map API response to Location interface
+        this.churches = data.map(church => ({
+          name: church.name,
+          description: church.description,
+          coordinates: [church.longitude, church.latitude],
+          personName: church.personName,
+          personPhoto: church.personPhoto
+        }));
+
+        console.log('Mapped Churches:', this.churches);
+
+        // Initialize the map AFTER fetching churches
+        this.initializeMap();
+      },
+      error: (err) => console.error('Error:', err)
+    });
+
   }
 
   applyChanges() {
@@ -117,12 +101,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
 
     this.map.on('load', async () => {
-      this.churches.forEach(church =>
+      this.churches.forEach((church: any) =>
         this.addMarkerWithClick(church, 'assets/marker.png')
       );
-
-      await this.startInitialRotation();
-      this.startChurchSlideshow();
+      setTimeout(async () => {
+        this.isLoading = false;
+        await this.startInitialRotation();
+        this.startChurchSlideshow();
+      }, 3000);
     });
   }
 
@@ -156,8 +142,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       // Step 1: Reset globe to zoomed-out full view
       await this.resetToGlobe();
 
-      // Step 2: Small rotation while globe is zoomed out
-      await this.startRotationStep();
+      // 👉 Skip rotation only for the first slide, since globe already rotated initially
+      if (index !== 0) {
+        await this.startRotationStep();
+      }
 
       // Step 3: Fly to the church location
       this.map.flyTo({
@@ -208,7 +196,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private buildPopupCard(church: Location): string {
     return `
       <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
-        <img src="${church.personPhoto}" alt="${church.personName}" 
+        <img src="./assets/person.jpg" alt="${church.personName}" 
              style="width:100%; height:150px; object-fit:cover; border-radius:8px;"/>
         <h3 style="margin:8px 0 4px; font-size:16px; color:#333;">${church.name}</h3>
         <p style="margin:0; font-size:13px; color:#555;">${church.description}</p>
