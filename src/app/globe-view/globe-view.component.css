@@ -7,35 +7,41 @@
 /* Transparent header */
 .header {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: transparent; /* ✅ transparent */
+  top: 20px; /* add some top spacing */
+  left: 50%;
+  transform: translateX(-50%); /* center horizontally */
+  height: auto; /* let content determine height */
+  background: rgba(255, 255, 255, 0.95); /* semi-transparent white */
+  border-radius: 12px; /* rounded corners */
+  padding: 10px 20px; /* padding around content */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  gap: 20px; /* space between logo, quotation, profile */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); /* subtle shadow */
   z-index: 10;
+  width: 95%; /* fixed width, same as quotation container */
 }
 
+/* Logo section */
 .logo {
   font-size: 40px;
   font-weight: bold;
-  color: #fff; /* ✅ white text */
+  color: #fff;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .logo i {
-  color: #fff; /* ✅ white icon */
+  color: #fff;
   font-size: 22px;
 }
 
+/* Profile icon */
 .profile i {
   font-size: 30px;
-  color: #fff; /* ✅ white profile icon */
+  color: #fff;
   cursor: pointer;
   transition: opacity 0.3s ease;
 }
@@ -44,13 +50,15 @@
   opacity: 0.7;
 }
 
+/* Globe map covers entire background */
 #globe-map {
   position: absolute;
-  top: 0;   /* ✅ start from very top since header is transparent */
+  top: 0;
   bottom: 0;
   left: 0;
   right: 0;
 }
+
 /* Remove default white popup background */
 ::ng-deep .mapboxgl-popup-content {
   background: transparent !important;
@@ -62,90 +70,50 @@
 ::ng-deep .mapboxgl-popup-close-button {
   display: none !important;
 }
-.controls {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 20;
-  background: rgba(0,0,0,0.6);
-  padding: 12px;
-  border-radius: 8px;
-  color: white;
+
+/* ----------------------------------------- */
+/* 🌍 QUOTATION SECTION (CENTER OF HEADER)   */
+/* ----------------------------------------- */
+
+.quotation-container {
+  flex: 1;
+  background: transparent; /* remove background since header now has it */
+  box-shadow: none; /* remove shadow */
+  width: auto; /* allow it to shrink/grow */
+  text-align: center;
+}
+
+/* English quote line (always visible) */
+.quotation-line.english {
+  margin: 0;
+  font-weight: bold;
+  font-size: 15px;
+  color: #000;
+  line-height: 1.3;
+}
+
+/* Translated quote (animated fade) */
+.quotation-line.translated {
+  margin: 4px 0 0;
+  font-weight: bold;
   font-size: 14px;
-}
-
-.controls label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.controls input[type="range"] {
-  width: 200px;
-  cursor: pointer;
-}
-
-.controls button {
-  margin-top: 6px;
-  padding: 6px 12px;
-  font-size: 14px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.2);
-  color: white;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.controls button:hover {
-  background: rgba(255,255,255,0.4);
-}
-.loader-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 6px solid #ccc;
-  border-top-color: #4b6cb7;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.loader-overlay p {
-  margin-top: 15px;
-  font-size: 16px;
   color: #333;
-  font-weight: 500;
-  font-family: sans-serif;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.loader-overlay {
-  opacity: 1;
-  transition: opacity 0.8s ease;
-}
-
-.loader-overlay.ng-leave,
-.loader-overlay.ng-leave-active {
   opacity: 0;
+  animation: fadeInOut 6s infinite;
+}
+
+/* Smooth fade animation for translated line */
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }

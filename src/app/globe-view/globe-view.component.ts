@@ -2,13 +2,26 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 
-interface Location {
-  name: string;
-  description: string;
-  coordinates: [number, number];
-  personName?: string;
-  personPhoto?: string;
+// Interface for the church data
+interface ChurchData {
+  gender: string;
+  country: string;
+  language: string;
+  activity: string;
+  latitude: number;
+  longitude: number;
 }
+
+// Map of language to quote
+const translatedQuotes: { [lang: string]: string } = {
+  English: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life",
+  French: "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse pas, mais qu'il ait la vie éternelle",
+  Spanish: "Porque tanto amó Dios al mundo que dio a su Hijo unigénito, para que todo el que cree en él no perezca, sino que tenga vida eterna",
+  Tagalog: "Sapagkat gayon na lamang ang pag-ibig ng Diyos sa sanlibutan kaya ibinigay niya ang kanyang bugtong na Anak, upang ang sinumang sumampalataya sa kanya ay hindi mapahamak kundi magkaroon ng buhay na walang hanggan",
+  Hindi: "क्योंकि परमेश्वर ने संसार से ऐसा प्रेम रखा कि उसने अपना एकलौता पुत्र दे दिया, ताकि जो कोई उस पर विश्वास करे वह नाश न हो परन्तु अनन्त जीवन पाए",
+  Yoruba: "Nítorí pé Ọlọrun fẹ́ ayé tó bẹ́ẹ̀ tí ó fi fúnni ní Ọmọ rẹ̀ kan ṣoṣo, kí ẹnikẹ́ni tí ó bá gbàgbọ́ sí i má bàjẹ́, ṣùgbọ́n kó ní ìyè àìnípẹ̀kun",
+  Zulu: "Ngoba uNkulunkulu wathanda izwe kangaka waze wanikela ngeNdodana yakhe ezelwe yodwa, ukuze yilowo nalowo okholwayo kuye angabhubhi kodwa abe nokuphila okuphakade"
+};
 
 @Component({
   selector: 'app-globe-view',
@@ -17,53 +30,48 @@ interface Location {
 })
 export class GlobeViewComponent implements OnInit, OnDestroy {
   map!: mapboxgl.Map;
-  churches: Location[] = []
-  rotationDuration: number = 2000;
+  churches: ChurchData[] = [];
   churchMarkers: mapboxgl.Marker[] = [];
   private animationId: number | null = null;
+  private isFlying = false;
   private bearing = 0;
-  private slideshowTimeout: any = null;
-  isLoading: boolean = true;
-  private readonly INITIAL_CENTER: [number, number] = [0, 20];
-  private readonly INITIAL_ZOOM: number = 1.5;
 
-  constructor(private ngZone: NgZone, private http: HttpClient) { }
+  // Quote variables
+  currentEnglishQuote: string = translatedQuotes['English'];
+  currentTranslatedQuote: string = translatedQuotes['French'];
+  private quoteIndex = 1;
+  private quoteInterval: any;
+  fade = true;
+
+  // Fallback data
+  churches_new: ChurchData[] = [];
+
+  constructor(private ngZone: NgZone, private http: HttpClient) {}
 
   ngOnInit(): void {
-    this.initializeMap();
+    this.startQuoteRotation();
 
     const apiUrl = 'https://server-486354915183.europe-west1.run.app';
-    this.http.get<any[]>(apiUrl).subscribe({
-      next: (data) => {
-        // Map API response to Location interface
-        this.churches = data.map(church => ({
-          name: church.name,
-          description: church.description,
-          coordinates: [church.longitude, church.latitude],
-          personName: church.personName,
-          personPhoto: church.personPhoto
-        }));
-
-        console.log('Mapped Churches:', this.churches);
-
-        // Initialize the map AFTER fetching churches
+    this.http.get<ChurchData[]>(apiUrl).subscribe({
+      next: (data: ChurchData[]) => {
+        if (data && data.length > 0) {
+          this.churches = data;
+        } else {
+          console.warn('API returned empty data, using fallback.');
+          this.churches = this.churches_new;
+        }
         this.initializeMap();
       },
-      error: (err) => console.error('Error:', err)
+      error: (err) => {
+        console.error('API error:', err, 'Using fallback data.');
+        this.churches = this.churches_new;
+        this.initializeMap();
+      }
     });
-
-  }
-
-  applyChanges() {
-    if (this.animationId) cancelAnimationFrame(this.animationId);
-    if (this.slideshowTimeout) clearTimeout(this.slideshowTimeout);
-    if (this.map) this.map.remove();
-    this.initializeMap();
   }
 
   initializeMap(): void {
-    (mapboxgl as any).accessToken =
-      'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
+    (mapboxgl as any).accessToken = 'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
 
     this.map = new mapboxgl.Map({
       container: 'globe-map',
@@ -81,105 +89,33 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
             attribution: '© OpenStreetMap contributors'
           }
         },
-        layers: [
-          {
-            id: 'osm-tiles',
-            type: 'raster',
-            source: 'osm-tiles',
-            minzoom: 0,
-            maxzoom: 19
-          }
-        ]
+        layers: [{ id: 'osm-tiles', type: 'raster', source: 'osm-tiles', minzoom: 0, maxzoom: 19 }]
       },
-      center: this.INITIAL_CENTER,
-      zoom: this.INITIAL_ZOOM,
+      center: [0, 20],
+      zoom: 1.5,
       projection: 'globe'
     });
 
-    this.map.on('style.load', () => {
-      this.map.setFog({});
-    });
+    this.map.on('style.load', () => this.map.setFog({}));
 
     this.map.on('load', async () => {
-      this.churches.forEach((church: any) =>
-        this.addMarkerWithClick(church, 'assets/marker.png')
-      );
-      setTimeout(async () => {
-        this.isLoading = false;
-        await this.startInitialRotation();
-        this.startChurchSlideshow();
-      }, 3000);
+      this.showChurches();
+      await this.startInitialRotation();
+      this.startChurchSlideshow();
+    });
+
+    this.map.on('zoom', () => {
+      const zoom = this.map.getZoom();
+      zoom >= 5 ? this.showChurches() : this.hideChurches();
     });
   }
 
   private startInitialRotation(): Promise<void> {
-    return this.startRotationStep();
-  }
-
-  // Reset to full globe view (zoomed out)
-  private resetToGlobe(): Promise<void> {
-    return new Promise(resolve => {
-      this.map.flyTo({
-        center: this.INITIAL_CENTER,
-        zoom: this.INITIAL_ZOOM,
-        bearing: 0,
-        speed: 0.6,
-        curve: 1,
-        essential: true
-      });
-      setTimeout(resolve, 2000); // wait for flyTo to finish
-    });
-  }
-
-  private startChurchSlideshow(): void {
-    let index = 0;
-
-    const showNextChurch = async () => {
-      if (!this.map) return;
-
-      const church = this.churches[index];
-
-      // Step 1: Reset globe to zoomed-out full view
-      await this.resetToGlobe();
-
-      // 👉 Skip rotation only for the first slide, since globe already rotated initially
-      if (index !== 0) {
-        await this.startRotationStep();
-      }
-
-      // Step 3: Fly to the church location
-      this.map.flyTo({
-        center: church.coordinates,
-        zoom: 5,
-        speed: 2,
-        curve: 1,
-        essential: true
-      });
-
-      // Show popup
-      const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: false })
-        .setHTML(this.buildPopupCard(church))
-        .setLngLat(church.coordinates)
-        .addTo(this.map);
-
-      // Wait 5s on card
-      this.slideshowTimeout = setTimeout(() => {
-        popup.remove();
-        index = (index + 1) % this.churches.length;
-        this.slideshowTimeout = setTimeout(showNextChurch, 1000);
-      }, 5000);
-    };
-
-    showNextChurch();
-  }
-
-  private startRotationStep(): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const start = performance.now();
-
       const rotate = (time: number) => {
         const elapsed = time - start;
-        if (elapsed < this.rotationDuration) {
+        if (elapsed < 1000) {
           this.bearing -= 0.5;
           this.map.easeTo({ bearing: this.bearing, duration: 50, easing: t => t });
           this.animationId = requestAnimationFrame(rotate);
@@ -188,26 +124,56 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           resolve();
         }
       };
-
       this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
     });
   }
 
-  private buildPopupCard(church: Location): string {
-    return `
-      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
-        <img src="./assets/person.jpg" alt="${church.personName}" 
-             style="width:100%; height:150px; object-fit:cover; border-radius:8px;"/>
-        <h3 style="margin:8px 0 4px; font-size:16px; color:#333;">${church.name}</h3>
-        <p style="margin:0; font-size:13px; color:#555;">${church.description}</p>
-        <p style="margin:6px 0 0; font-size:14px; font-weight:bold; color:#222;">
-          👤 ${church.personName}
-        </p>
-      </div>
-    `;
+  private startChurchSlideshow(): void {
+    let index = 0;
+    const showNextChurch = () => {
+      if (!this.map || this.isFlying) return;
+
+      this.isFlying = true;
+      const church = this.churches[index];
+
+      this.map.flyTo({
+        center: [church.longitude, church.latitude],
+        zoom: 5,
+        speed: 1.5,
+        curve: 1,
+        essential: true
+      });
+
+      const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: false })
+        .setHTML(this.buildPopupCard(church))
+        .setLngLat([church.longitude, church.latitude])
+        .addTo(this.map);
+
+      setTimeout(() => {
+        popup.remove();
+        this.isFlying = false;
+        index = (index + 1) % this.churches.length;
+        setTimeout(showNextChurch, 1000);
+      }, 5000);
+    };
+    showNextChurch();
   }
 
-  addMarkerWithClick(location: Location, iconPath: string): mapboxgl.Marker {
+  private buildPopupCard(church: ChurchData): string {
+    const personImg = church.gender.toLowerCase() === 'male' ? 'assets/person.jpg' : 'assets/female.jpg';
+    const quote = translatedQuotes[church.language] || translatedQuotes['English'];
+
+    return `
+      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
+        <img src="${personImg}" alt="${church.gender}" 
+             style="width:100%; height:150px; object-fit:cover; border-radius:8px;"/>
+        <h2 style="margin:8px 0 4px; font-size:16px; color:#333;">Country: ${church.country}</h2>
+        <p style="margin:0; font-size:14px;">Language: ${church.language}</p>
+        <p style="margin:0; font-size:14px;">Activity: ${church.activity}</p>
+      </div>`;
+  }
+
+  addMarkerWithHover(church: ChurchData, iconPath: string): mapboxgl.Marker {
     const el = document.createElement('div');
     el.className = 'marker';
     el.style.backgroundImage = `url(${iconPath})`;
@@ -216,30 +182,46 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     el.style.backgroundSize = 'cover';
     el.style.cursor = 'pointer';
 
-    const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(this.buildPopupCard(location));
+    const popup = new mapboxgl.Popup({ offset: 25, closeButton: false, closeOnClick: false })
+      .setHTML(this.buildPopupCard(church));
 
-    return new mapboxgl.Marker(el)
-      .setLngLat(location.coordinates)
-      .setPopup(popup)
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat([church.longitude, church.latitude])
       .addTo(this.map);
+
+    el.addEventListener('mouseenter', () => popup.addTo(this.map).setLngLat([church.longitude, church.latitude]));
+    el.addEventListener('mouseleave', () => popup.remove());
+
+    return marker;
   }
 
-  // ✅ Added missing methods for buttons
-  zoomIn(): void {
-    if (this.map) {
-      this.map.zoomIn({ duration: 500 });
+  showChurches() {
+    if (this.churchMarkers.length === 0 && this.churches.length > 0) {
+      this.churchMarkers = this.churches.map(church => this.addMarkerWithHover(church, 'assets/marker.png'));
     }
   }
 
-  zoomOut(): void {
-    if (this.map) {
-      this.map.zoomOut({ duration: 500 });
-    }
+  hideChurches() {
+    this.churchMarkers.forEach(marker => marker.remove());
+    this.churchMarkers = [];
+  }
+
+  private startQuoteRotation(): void {
+    const langs = Object.keys(translatedQuotes);
+    this.quoteInterval = setInterval(() => {
+      this.fade = false;
+      setTimeout(() => {
+        this.quoteIndex = (this.quoteIndex + 1) % langs.length;
+        const lang = langs[this.quoteIndex];
+        this.currentTranslatedQuote = translatedQuotes[lang];
+        this.fade = true;
+      }, 1500);
+    }, 5000);
   }
 
   ngOnDestroy(): void {
     if (this.map) this.map.remove();
     if (this.animationId) cancelAnimationFrame(this.animationId);
-    if (this.slideshowTimeout) clearTimeout(this.slideshowTimeout);
+    if (this.quoteInterval) clearInterval(this.quoteInterval);
   }
 }
