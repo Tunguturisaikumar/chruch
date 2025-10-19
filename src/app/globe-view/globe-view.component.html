@@ -1,4 +1,8 @@
-<div class="header">
+<div *ngIf="loading" class="map-loader">
+  <div class="spinner"></div>
+  <p>Loading map...</p>
+</div>
+<div [hidden]="loading" class="header">
   <div class="logo" style="color: black;">
     <i style="color: black;" class="fas fa-church"></i> Church
   </div>
