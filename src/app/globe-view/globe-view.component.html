@@ -3,18 +3,28 @@
   <p>Loading map...</p>
 </div>
 <div [hidden]="loading" class="header">
-  <div class="logo" style="color: black;">
+  <!-- <div class="logo" style="color: black;">
     <i style="color: black;" class="fas fa-church"></i> Church
-  </div>
+  </div> -->
 
   <div class="quotation-container">
     <p class="quotation-line english">{{ currentEnglishQuote }}</p>
     <p class="quotation-line translated">{{ currentTranslatedQuote }}</p>
   </div>
 
-  <div class="profile">
+  <!-- <div class="profile">
     <i style="color: black;" class="fas fa-user-circle"></i>
-  </div>
+  </div> -->
 </div>
 
 <div id="globe-map"></div>
+<!-- Menu Icon -->
+<div class="menu-button" (click)="toggleMenu($event)">
+  <i class="fas fa-bars"></i>
+</div>
+
+<!-- Popup -->
+<div class="menu-popup" *ngIf="isMenuOpen" (click)="$event.stopPropagation()">
+  <i class="fas fa-church"></i>
+  <i class="fas fa-user-circle"></i>
+</div>

@@ -2,7 +2,6 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
-import { Feature, FeatureCollection, Point } from 'geojson';
 
 // Interface for the church data
 interface ChurchData {
@@ -10,19 +9,26 @@ interface ChurchData {
   country: string;
   language: string;
   activity: string;
-  latitude?: number;
-  longitude?: number;
+  latitude: number;
+  longitude: number;
 }
 
 // Map of language to quote
 const translatedQuotes: { [lang: string]: string } = {
-  English: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life",
-  French: "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse pas, mais qu'il ait la vie éternelle",
-  Spanish: "Porque tanto amó Dios al mundo que dio a su Hijo unigénito, para que todo el que cree en él no perezca, sino que tenga vida eterna",
-  Tagalog: "Sapagkat gayon na lamang ang pag-ibig ng Diyos sa sanlibutan kaya ibinigay niya ang kanyang bugtong na Anak, upang ang sinumang sumampalataya sa kanya ay hindi mapahamak kundi magkaroon ng buhay na walang hanggan",
-  Hindi: "क्योंकि परमेश्वर ने संसार से ऐसा प्रेम रखा कि उसने अपना एकलौता पुत्र दे दिया, ताकि जो कोई उस पर विश्वास करे वह नाश न हो परन्तु अनन्त जीवन पाए",
-  Yoruba: "Nítorí pé Ọlọrun fẹ́ ayé tó bẹ́ẹ̀ tí ó fi fúnni ní Ọmọ rẹ̀ kan ṣoṣo, kí ẹnikẹ́ni tí ó bá gbàgbọ́ sí i má bàjẹ́, ṣùgbọ́n kó ní ìyè àìnípẹ̀kun",
-  Zulu: "Ngoba uNkulunkulu wathanda izwe kangaka waze wanikela ngeNdodana yakhe ezelwe yodwa, ukuze yilowo nalowo okholwayo kuye angabhubhi kodwa abe nokuphila okuphakade"
+  English:
+    "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life",
+  French:
+    "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse pas, mais qu'il ait la vie éternelle",
+  Spanish:
+    "Porque tanto amó Dios al mundo que dio a su Hijo unigénito, para que todo el que cree en él no perezca, sino que tenga vida eterna",
+  Tagalog:
+    "Sapagkat gayon na lamang ang pag-ibig ng Diyos sa sanlibutan kaya ibinigay niya ang kanyang bugtong na Anak, upang ang sinumang sumampalataya sa kanya ay hindi mapahamak kundi magkaroon ng buhay na walang hanggan",
+  Hindi:
+    "क्योंकि परमेश्वर ने संसार से ऐसा प्रेम रखा कि उसने अपना एकलौता पुत्र दे दिया, ताकि जो कोई उस पर विश्वास करे वह नाश न हो परन्तु अनन्त जीवन पाए",
+  Yoruba:
+    "Nítorí pé Ọlọrun fẹ́ ayé tó bẹ́ẹ̀ tí ó fi fúnni ní Ọmọ rẹ̀ kan ṣoṣo, kí ẹnikẹ́ni tí ó bá gbàgbọ́ sí i má bàjẹ́, ṣùgbọ́n kó ní ìyè àìnípẹ̀kun",
+  Zulu:
+    "Ngoba uNkulunkulu wathanda izwe kangaka waze wanikela ngeNdodana yakhe ezelwe yodwa, ukuze yilowo nalowo okholwayo kuye angabhubhi kodwa abe nokuphila okuphakade"
 };
 
 @Component({
@@ -33,6 +39,8 @@ const translatedQuotes: { [lang: string]: string } = {
 export class GlobeViewComponent implements OnInit, OnDestroy {
   map!: mapboxgl.Map;
   churches: ChurchData[] = [];
+  churchMarkers: mapboxgl.Marker[] = [];
+
   private animationId: number | null = null;
   private isFlying = false;
   private bearing = 0;
@@ -45,46 +53,86 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private quoteInterval: any;
   fade = true;
 
-  private geojsonSourceId = 'churches';
+  // Fallback data
+  churches_new: ChurchData[] = [];
+
+  isMenuOpen = false;
+
+toggleMenu(event: MouseEvent) {
+  event.stopPropagation();
+  this.isMenuOpen = !this.isMenuOpen;
+}
 
   constructor(private ngZone: NgZone, private http: HttpClient) {}
 
   ngOnInit(): void {
     this.startQuoteRotation();
-    this.loadInitialData();
-    this.subscribeToRealtimeUpdates();
-  }
-
-  // Load initial API data
-  loadInitialData() {
+    document.addEventListener('click', this.handleOutsideClick.bind(this));
     const apiUrl = 'https://server-486354915183.europe-west1.run.app';
     this.http.get<ChurchData[]>(apiUrl).subscribe({
-      next: (data) => {
-        this.churches = data.map(ch => {
-          const coords = countryCoordinates[ch.country] || { lat: 0, lng: 0 };
-          // Add jitter to spread markers within country
-          const latOffset = (Math.random() - 0.5) * 2;
-          const lngOffset = (Math.random() - 0.5) * 2;
-          return { ...ch, latitude: coords.lat + latOffset, longitude: coords.lng + lngOffset };
-        });
+      next: (data: ChurchData[]) => {
+        if (data && data.length > 0) {
+          // Fill latitude & longitude using country map
+          this.churches = data.map(church => {
+            const coords = countryCoordinates[church.country];
+            if (coords) {
+              // Add small random offset (jitter) to spread markers within the country region
+              const latOffset = (Math.random() - 1) * 2; // between -1 and +1 degree
+              const lngOffset = (Math.random() - 1) * 2;
+              return {
+                ...church,
+                latitude: coords.lat + latOffset,
+                longitude: coords.lng + lngOffset
+              };
+            } else {
+              console.warn(`No coordinates found for ${church.country}`);
+              return { ...church, latitude: 0, longitude: 0 };
+            }
+          });
+        } else {
+          console.warn('API returned empty data, using fallback.');
+          this.churches = this.churches_new;
+        }
         this.initializeMap();
       },
       error: (err) => {
-        console.error('API error:', err);
-        // Fallback empty array
-        this.churches = [];
+        console.error('API error:', err, 'Using fallback data.');
+        this.churches = this.churches_new;
         this.initializeMap();
       }
     });
   }
 
-  // Initialize Mapbox
   initializeMap(): void {
-    (mapboxgl as any).accessToken = 'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
+    (mapboxgl as any).accessToken =
+      'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
 
     this.map = new mapboxgl.Map({
       container: 'globe-map',
-      style: 'mapbox://styles/mapbox/streets-v12',
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [
+              'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            ],
+            tileSize: 256,
+            attribution: '© OpenStreetMap contributors'
+          }
+        },
+        layers: [
+          {
+            id: 'osm-tiles',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: 0,
+            maxzoom: 19
+          }
+        ]
+      },
       center: [0, 20],
       zoom: 1.5,
       projection: 'globe'
@@ -92,101 +140,48 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     this.map.on('style.load', () => this.map.setFog({}));
 
-    this.map.on('load', () => {
-      this.startInitialRotation();
-      this.addMapSourceAndLayers();
-      
+    this.map.on('load', async () => {
+      this.showChurches();
+      await this.startInitialRotation();
       this.startChurchSlideshow();
-
        this.loading = false;
     });
-  }
 
-  // Add GeoJSON source & clustering
-  private addMapSourceAndLayers() {
-    const features: Feature<Point, any>[] = this.churches.map(ch => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [ch.longitude!, ch.latitude!] },
-      properties: { ...ch }
-    }));
-
-    this.map.addSource(this.geojsonSourceId, {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features } as FeatureCollection<Point, any>,
-      cluster: true,
-      clusterMaxZoom: 14,
-      clusterRadius: 50
-    });
-
-    // Cluster circles
-    this.map.addLayer({
-      id: 'clusters',
-      type: 'circle',
-      source: this.geojsonSourceId,
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': '#f28cb1',
-        'circle-radius': ['step', ['get', 'point_count'], 15, 100, 20, 750, 25]
-      }
-    });
-
-    // Cluster count
-    this.map.addLayer({
-      id: 'cluster-count',
-      type: 'symbol',
-      source: this.geojsonSourceId,
-      filter: ['has', 'point_count'],
-      layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 12 }
-    });
-
-    // Individual points
-    this.map.addLayer({
-      id: 'unclustered-point',
-      type: 'circle',
-      source: this.geojsonSourceId,
-      filter: ['!', ['has', 'point_count']],
-      paint: { 'circle-color': '#11b4da', 'circle-radius': 6 }
-    });
-
-    // Popup
-    this.map.on('click', 'unclustered-point', (e) => {
-      const props = (e.features![0].properties as any);
-      new mapboxgl.Popup()
-        .setLngLat((e.features![0].geometry as any).coordinates)
-        .setHTML(this.buildPopupCard({
-          ...props,
-          latitude: (e.features![0].geometry as any).coordinates[1],
-          longitude: (e.features![0].geometry as any).coordinates[0]
-        }))
-        .addTo(this.map);
+    this.map.on('zoom', () => {
+      const zoom = this.map.getZoom();
+      zoom >= 5 ? this.showChurches() : this.hideChurches();
     });
   }
 
-  // Initial rotation animation
-  private startInitialRotation(): void {
-    const start = performance.now();
-    const rotate = (time: number) => {
-      const elapsed = time - start;
-      if (elapsed < 1000) {
-        this.bearing -= 0.5;
-        this.map.easeTo({ bearing: this.bearing, duration: 50, easing: t => t });
-        this.animationId = requestAnimationFrame(rotate);
-      } else if (this.animationId) cancelAnimationFrame(this.animationId);
-    };
-    this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
+  private startInitialRotation(): Promise<void> {
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const rotate = (time: number) => {
+        const elapsed = time - start;
+        if (elapsed < 1000) {
+          this.bearing -= 0.5;
+          this.map.easeTo({ bearing: this.bearing, duration: 50, easing: t => t });
+          this.animationId = requestAnimationFrame(rotate);
+        } else {
+          if (this.animationId) cancelAnimationFrame(this.animationId);
+          resolve();
+        }
+      };
+      this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
+    });
   }
 
-  // Slideshow / flyTo
   private startChurchSlideshow(): void {
     let index = 0;
-    const showNextChurch = () => {
-      if (!this.map || this.isFlying || this.churches.length === 0) return;
 
+    const showNextChurch = () => {
+      if (!this.map || this.isFlying) return;
       this.isFlying = true;
+
       const church = this.churches[index];
 
       this.map.flyTo({
-        center: [church.longitude!, church.latitude!],
+        center: [church.longitude, church.latitude],
         zoom: 5,
         speed: 1.5,
         curve: 1,
@@ -195,7 +190,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: false })
         .setHTML(this.buildPopupCard(church))
-        .setLngLat([church.longitude!, church.latitude!])
+        .setLngLat([church.longitude, church.latitude])
         .addTo(this.map);
 
       setTimeout(() => {
@@ -205,22 +200,64 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         setTimeout(showNextChurch, 1000);
       }, 5000);
     };
+
     showNextChurch();
   }
 
-  // Build HTML for popup card
   private buildPopupCard(church: ChurchData): string {
-    const personImg = church.gender?.toLowerCase() === 'male' ? 'assets/Personicon.jpg' : 'assets/Personicon.jpg';
+    const personImg =
+      church.gender.toLowerCase() === 'male'
+        ? 'assets/Personicon.jpg'
+        : 'assets/Personicon.jpg';
+    const quote = translatedQuotes[church.language] || translatedQuotes['English'];
 
     return `
-      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-        <img src="${personImg}" alt="${church.gender}" style="width:100%; height:150px; object-fit:cover; border-radius:8px;"/>
-        <h3>${church.country}</h3>
-        <p>${church.language} | ${church.activity}</p>
-      </div>`;
+      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
+        <img src="${personImg}" alt="${church.gender}" style="width:100%; height:140px; object-fit:cover; border-radius:8px;"/>
+        <h2 style="margin:8px 0 4px; font-size:16px; color:#333;">Country: ${church.country}</h2>
+        <h3 style="margin:0; font-size:14px;">Language: ${church.language}</h3>
+        <h3 style="margin:0; font-size:14px;">Activity: ${church.activity}</h3>
+      </div>
+    `;
   }
 
-  // Quote rotation
+  addMarkerWithHover(church: ChurchData, iconPath: string): mapboxgl.Marker {
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.backgroundImage = `url(${iconPath})`;
+    el.style.width = '30px';
+    el.style.height = '30px';
+    el.style.backgroundSize = 'cover';
+    el.style.cursor = 'pointer';
+
+    const popup = new mapboxgl.Popup({ offset: 25, closeButton: false, closeOnClick: false })
+      .setHTML(this.buildPopupCard(church));
+
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat([church.longitude, church.latitude])
+      .addTo(this.map);
+
+    el.addEventListener('mouseenter', () =>
+      popup.addTo(this.map).setLngLat([church.longitude, church.latitude])
+    );
+    el.addEventListener('mouseleave', () => popup.remove());
+
+    return marker;
+  }
+
+  showChurches() {
+    if (this.churchMarkers.length === 0 && this.churches.length > 0) {
+      this.churchMarkers = this.churches.map(church =>
+        this.addMarkerWithHover(church, 'assets/marker.png')
+      );
+    }
+  }
+
+  hideChurches() {
+    this.churchMarkers.forEach(marker => marker.remove());
+    this.churchMarkers = [];
+  }
+
   private startQuoteRotation(): void {
     const langs = Object.keys(translatedQuotes);
     this.quoteInterval = setInterval(() => {
@@ -234,32 +271,15 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }, 5000);
   }
 
-  // Real-time updates (WebSocket/SSE)
-  private subscribeToRealtimeUpdates(): void {
-    const ws = new WebSocket('wss://your-server/realtime-church');
-    ws.onmessage = (event) => {
-      const newChurch = JSON.parse(event.data) as ChurchData;
-
-      const coords = countryCoordinates[newChurch.country] || { lat: 0, lng: 0 };
-      newChurch.latitude = coords.lat + (Math.random() - 0.5) * 2;
-      newChurch.longitude = coords.lng + (Math.random() - 0.5) * 2;
-
-      this.churches.push(newChurch);
-
-      const source = this.map.getSource(this.geojsonSourceId) as mapboxgl.GeoJSONSource;
-      const data = source._data as any;
-      data.features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [newChurch.longitude, newChurch.latitude] },
-        properties: { ...newChurch }
-      });
-      source.setData(data);
-    };
-  }
-
   ngOnDestroy(): void {
     if (this.map) this.map.remove();
     if (this.animationId) cancelAnimationFrame(this.animationId);
     if (this.quoteInterval) clearInterval(this.quoteInterval);
+    document.removeEventListener('click', this.handleOutsideClick.bind(this));
   }
+  private handleOutsideClick() {
+  if (this.isMenuOpen) {
+    this.isMenuOpen = false;
+  }
+}
 }
