@@ -214,7 +214,7 @@ toggleMenu(event: MouseEvent) {
     return `
       <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
         <img src="${personImg}" alt="${church.gender}" style="width:100%; height:140px; object-fit:cover; border-radius:8px;"/>
-        <h2 style="margin:8px 0 4px; font-size:16px; color:#333;">Country: ${church.country}</h2>
+        <h2 style="margin:8px 0 4px; font-size:16px;">Country: ${church.country}</h2>
         <h3 style="margin:0; font-size:14px;">Language: ${church.language}</h3>
         <h3 style="margin:0; font-size:14px;">Activity: ${church.activity}</h3>
       </div>
