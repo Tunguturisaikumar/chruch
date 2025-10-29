@@ -248,7 +248,7 @@ toggleMenu(event: MouseEvent) {
   showChurches() {
     if (this.churchMarkers.length === 0 && this.churches.length > 0) {
       this.churchMarkers = this.churches.map(church =>
-        this.addMarkerWithHover(church, 'assets/marker.png')
+        this.addMarkerWithHover(church, '')
       );
     }
   }
