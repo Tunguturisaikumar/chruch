@@ -120,7 +120,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.startQuoteRotation();
     document.addEventListener('click', this.handleOutsideClick.bind(this));
-    const apiUrl = 'https://server-486354915183.europe-west1.run.app';
+    const apiUrl = 'https://serverold-486354915183.europe-west1.run.app';
     this.http.get<ChurchData[]>(apiUrl).subscribe({
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
@@ -257,7 +257,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     let personImg: string;
 
     if (!church.gender || church.gender.trim() === '') {
-      personImg = 'assets/icon.jpg';
+      personImg = 'assets/realperson.jpg';
     } else if (church.gender.toLowerCase() === 'male') {
       personImg = 'assets/realperson.jpg';
     } else if (church.gender.toLowerCase() === 'female') {
