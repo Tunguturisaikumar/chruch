@@ -79,7 +79,7 @@ const translatedQuotes: { [lang: string]: string } = {
     "(Uzbek) “Chunki Xudo dunyoni shunday sevdi: U yagona O‘g‘lini berdi, shunda Unga ishonadigan har kishi yo‘qolib ketmasin, balki abadiy hayotga ega bo‘lsin.” — Yuhanno 3:16",
   Vietnamese:
     "(Vietnamese) “Vì Đức Chúa Trời đã yêu thương thế gian đến nỗi ban Con Một của Ngài, hầu cho hễ ai tin Con ấy không bị hư mất mà được sự sống đời đời.” — Giăng 3:16",
- };
+};
 
 
 
@@ -126,15 +126,12 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         if (data && data.length > 0) {
           // Fill latitude & longitude using country map
           this.churches = data.map(church => {
-            const coords = countryCoordinates[church.country];
+            const coords = countryCoordinates.find(c => c.name === church.country);
             if (coords) {
-              // Add small random offset (jitter) to spread markers within the country region
-              const latOffset = (Math.random() - 1) * 2; // between -1 and +1 degree
-              const lngOffset = (Math.random() - 1) * 2;
               return {
                 ...church,
-                latitude: coords.lat + latOffset,
-                longitude: coords.lng + lngOffset
+                latitude: coords.latitude,
+                longitude: coords.longitude
               };
             } else {
               console.warn(`No coordinates found for ${church.country}`);
@@ -257,10 +254,17 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private buildPopupCard(church: ChurchData): string {
-    const personImg =
-      church.gender.toLowerCase() === 'male'
-        ? 'assets/Personicon.jpg'
-        : 'assets/Personicon.jpg';
+    let personImg: string;
+
+    if (!church.gender || church.gender.trim() === '') {
+      personImg = 'assets/icon.jpg';
+    } else if (church.gender.toLowerCase() === 'male') {
+      personImg = 'assets/realperson.jpg';
+    } else if (church.gender.toLowerCase() === 'female') {
+      personImg = 'assets/realwomen.jpg';
+    } else {
+      personImg = 'assets/Personicon.jpg';
+    }
     const quote = translatedQuotes[church.language] || translatedQuotes['English'];
 
     return `
