@@ -215,3 +215,14 @@
     transform: translateY(0);
   }
 }
+/* Main popup should always be on top */
+.mapboxgl-popup.main-popup {
+  z-index: 1000 !important;
+}
+
+/* Small popups go behind */
+.mapboxgl-popup.small-popup {
+  z-index: 500 !important;
+  opacity: 0.9;
+  transform: scale(0.95);
+}

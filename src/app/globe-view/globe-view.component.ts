@@ -3,7 +3,6 @@ import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
 
-// Interface for the church data
 interface ChurchData {
   gender: string;
   country: string;
@@ -13,7 +12,14 @@ interface ChurchData {
   longitude: number;
 }
 
-// Map of language to quote
+interface CityData {
+  city: string;
+  lat: number;
+  lng: number;
+  country: string;
+  population: number;
+}
+
 const translatedQuotes: { [lang: string]: string } = {
   Afrikaans:
     "(Afrikaans) “Want so lief het God die wêreld gehad, dat Hy sy eniggebore Seun gegee het, sodat elkeen wat in Hom glo, nie verlore mag gaan nie, maar ewige lewe kan hê.” — Johannes 3:16",
@@ -91,6 +97,7 @@ const translatedQuotes: { [lang: string]: string } = {
 export class GlobeViewComponent implements OnInit, OnDestroy {
   map!: mapboxgl.Map;
   churches: ChurchData[] = [];
+  cities: CityData[] = [];
   churchMarkers: mapboxgl.Marker[] = [];
 
   private animationId: number | null = null;
@@ -98,46 +105,48 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private bearing = 0;
   loading = true;
 
-  // Quote variables
   currentEnglishQuote: string = translatedQuotes['English'];
   currentTranslatedQuote: string = translatedQuotes['French'];
   private quoteIndex = 1;
   private quoteInterval: any;
   fade = true;
 
-  // Fallback data
   churches_new: ChurchData[] = [];
 
   isMenuOpen = false;
-
-  toggleMenu(event: MouseEvent) {
+  private previousCountryPopups: mapboxgl.Popup[] = [];
+  private lastCountry: string | null = null;
+ toggleMenu(event: MouseEvent) {
     event.stopPropagation();
     this.isMenuOpen = !this.isMenuOpen;
   }
-
-  constructor(private ngZone: NgZone, private http: HttpClient) { }
+  constructor(private ngZone: NgZone, private http: HttpClient) {}
 
   ngOnInit(): void {
     this.startQuoteRotation();
     document.addEventListener('click', this.handleOutsideClick.bind(this));
+
+    // ✅ Step 1: Load cities JSON first
+    this.http.get<CityData[]>('assets/worldcities.json').subscribe({
+      next: (citiesData) => {
+        this.cities = citiesData;
+        console.log(this.cities)
+        this.loadChurchData(); // Continue only after city data is ready
+      },
+      error: (err) => {
+        console.error('Failed to load cities.json', err);
+        this.loadChurchData(); // Still continue (fallback to country)
+      }
+    });
+  }
+
+  // ✅ Step 2: Load churches from API
+  private loadChurchData(): void {
     const apiUrl = 'https://serverold-486354915183.europe-west1.run.app';
     this.http.get<ChurchData[]>(apiUrl).subscribe({
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
-          // Fill latitude & longitude using country map
-          this.churches = data.map(church => {
-            const coords = countryCoordinates.find(c => c.name === church.country);
-            if (coords) {
-              return {
-                ...church,
-                latitude: coords.latitude,
-                longitude: coords.longitude
-              };
-            } else {
-              console.warn(`No coordinates found for ${church.country}`);
-              return { ...church, latitude: 0, longitude: 0 };
-            }
-          });
+          this.churches = this.assignCityCoordinates(data);
         } else {
           console.warn('API returned empty data, using fallback.');
           this.churches = this.churches_new;
@@ -152,6 +161,43 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ✅ Step 3: Match country → pick a random city from that country
+  private assignCityCoordinates(data: ChurchData[]): ChurchData[] {
+    const updated: ChurchData[] = [];
+
+    data.forEach(church => {
+      const citiesInCountry = this.cities.filter(
+        c => c.country.toLowerCase() === church.country.toLowerCase()
+      );
+
+      if (citiesInCountry.length > 0) {
+        const randomCity = citiesInCountry[Math.floor(Math.random() * citiesInCountry.length)];
+        updated.push({
+          ...church,
+          latitude: randomCity.lat,
+          longitude: randomCity.lng
+        });
+      } else {
+        // fallback to country center
+        const countryMatch = countryCoordinates.find(
+          c => c.name.toLowerCase() === church.country.toLowerCase()
+        );
+        if (countryMatch) {
+          updated.push({
+            ...church,
+            latitude: countryMatch.latitude,
+            longitude: countryMatch.longitude
+          });
+        } else {
+          updated.push({ ...church, latitude: 0, longitude: 0 });
+        }
+      }
+    });
+
+    return updated;
+  }
+
+  // ✅ Map setup
   initializeMap(): void {
     (mapboxgl as any).accessToken =
       'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
@@ -188,22 +234,21 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
 
     this.map.on('style.load', () => this.map.setFog({}));
-
     this.map.on('load', async () => {
       this.showChurches();
       await this.startInitialRotation();
       this.startChurchSlideshow();
       this.loading = false;
     });
-
     this.map.on('zoom', () => {
       const zoom = this.map.getZoom();
       zoom >= 5 ? this.showChurches() : this.hideChurches();
     });
   }
 
+  // ✅ Rotation Animation
   private startInitialRotation(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const start = performance.now();
       const rotate = (time: number) => {
         const elapsed = time - start;
@@ -220,38 +265,72 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  private startChurchSlideshow(): void {
-    let index = 0;
+private startChurchSlideshow(): void {
+  let index = 0;
+  const shownChurches: ChurchData[] = [];
 
-    const showNextChurch = () => {
-      if (!this.map || this.isFlying) return;
-      this.isFlying = true;
+  const showNextChurch = () => {
+    if (!this.map || this.isFlying) return;
+    this.isFlying = true;
 
-      const church = this.churches[index];
+    const church = this.churches[index];
+    const currentCountry = church.country;
 
-      this.map.flyTo({
-        center: [church.longitude, church.latitude],
-        zoom: 5,
-        speed: 1.5,
-        curve: 1,
-        essential: true
+    // Remove small popups if country changes
+    if (this.lastCountry && this.lastCountry !== currentCountry) {
+      this.previousCountryPopups.forEach(p => p.remove());
+      this.previousCountryPopups = [];
+    }
+
+    this.lastCountry = currentCountry;
+
+    this.map.flyTo({
+      center: [church.longitude, church.latitude],
+      zoom: 5,
+      speed: 1.5,
+      curve: 1,
+      essential: true
+    });
+
+    // ✅ Step 1: Add small cards FIRST, with lower z-index
+    shownChurches
+      .filter(c => c.country === currentCountry)
+      .forEach(prev => {
+        const smallPopup = new mapboxgl.Popup({
+          offset: 10,
+          closeButton: false,
+          className: 'small-popup' // ✅ custom class for styling
+        })
+          .setHTML(this.buildSmallPopup(prev))
+          .setLngLat([prev.longitude + 0.3, prev.latitude + 0.3])
+          .addTo(this.map);
+
+        this.previousCountryPopups.push(smallPopup);
       });
 
-      const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: false })
-        .setHTML(this.buildPopupCard(church))
-        .setLngLat([church.longitude, church.latitude])
-        .addTo(this.map);
+    // ✅ Step 2: Add MAIN popup AFTER (so it's on top)
+    const mainPopup = new mapboxgl.Popup({
+      offset: 25,
+      closeOnClick: false,
+      className: 'main-popup'
+    })
+      .setHTML(this.buildPopupCard(church))
+      .setLngLat([church.longitude, church.latitude])
+      .addTo(this.map);
 
-      setTimeout(() => {
-        popup.remove();
-        index = (index + 1) % this.churches.length;
-        this.isFlying = false;
-        showNextChurch();
-      }, 5000);
-    };
+    shownChurches.push(church);
 
-    showNextChurch();
-  }
+    setTimeout(() => {
+      mainPopup.remove();
+      index = (index + 1) % this.churches.length;
+      this.isFlying = false;
+      showNextChurch();
+    }, 5000);
+  };
+
+  showNextChurch();
+}
+
 
   private buildPopupCard(church: ChurchData): string {
     let personImg: string;
@@ -265,16 +344,51 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     } else {
       personImg = 'assets/Personicon.jpg';
     }
-    const quote = translatedQuotes[church.language] || translatedQuotes['English'];
 
     return `
-      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-family:sans-serif; background:#fff;">
+      <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
         <img src="${personImg}" alt="${church.gender}" style="width:100%; height:140px; object-fit:cover; border-radius:8px;"/>
         <h2 style="margin:8px 0 4px; font-size:16px;">Country: ${church.country}</h2>
         <h3 style="margin:0; font-size:14px;">Language: ${church.language}</h3>
         <h3 style="margin:0; font-size:14px;">Activity: ${church.activity}</h3>
       </div>
     `;
+  }
+
+  private buildSmallPopup(church: ChurchData): string {
+    let personImg: string;
+
+    if (!church.gender || church.gender.trim() === '') {
+      personImg = 'assets/realperson.jpg';
+    } else if (church.gender.toLowerCase() === 'male') {
+      personImg = 'assets/realperson.jpg';
+    } else if (church.gender.toLowerCase() === 'female') {
+      personImg = 'assets/realwomen.jpg';
+    } else {
+      personImg = 'assets/Personicon.jpg';
+    }
+
+    return `
+    <div style="width:80px; padding:7px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.2); background:#fff;">
+        <img src="${personImg}" alt="${church.gender}" style="width:100%; height:40px; object-fit:cover; border-radius:6px;"/>
+        <p style="margin:0; font-size:8px;">Country: ${church.country}</p>
+        <p style="margin:0; font-size:6px;">Language: ${church.language}</p>
+        <p style="margin:0; font-size:6px;">Activity: ${church.activity}</p>
+      </div>
+      `;
+  }
+
+  showChurches() {
+    if (this.churchMarkers.length === 0 && this.churches.length > 0) {
+      this.churchMarkers = this.churches.map(church =>
+        this.addMarkerWithHover(church, '')
+      );
+    }
+  }
+
+  hideChurches() {
+    this.churchMarkers.forEach(marker => marker.remove());
+    this.churchMarkers = [];
   }
 
   addMarkerWithHover(church: ChurchData, iconPath: string): mapboxgl.Marker {
@@ -301,19 +415,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     return marker;
   }
 
-  showChurches() {
-    if (this.churchMarkers.length === 0 && this.churches.length > 0) {
-      this.churchMarkers = this.churches.map(church =>
-        this.addMarkerWithHover(church, '')
-      );
-    }
-  }
-
-  hideChurches() {
-    this.churchMarkers.forEach(marker => marker.remove());
-    this.churchMarkers = [];
-  }
-
   private startQuoteRotation(): void {
     const langs = Object.keys(translatedQuotes);
     this.quoteInterval = setInterval(() => {
@@ -333,9 +434,8 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     if (this.quoteInterval) clearInterval(this.quoteInterval);
     document.removeEventListener('click', this.handleOutsideClick.bind(this));
   }
+
   private handleOutsideClick() {
-    if (this.isMenuOpen) {
-      this.isMenuOpen = false;
-    }
+    if (this.isMenuOpen) this.isMenuOpen = false;
   }
 }
