@@ -165,11 +165,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     data.forEach(church => {
       const citiesInCountry = this.cities.filter(
-  c =>
-    c?.country?.toLowerCase?.() &&
-    church?.country?.toLowerCase?.() &&
-    c.country.toLowerCase() === church.country.toLowerCase()
-);
+        c =>
+          c?.country?.toLowerCase?.() &&
+          church?.country?.toLowerCase?.() &&
+          c.country.toLowerCase() === church.country.toLowerCase()
+      );
 
 
       if (citiesInCountry.length > 0) {
@@ -181,10 +181,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         });
       } else {
         const countryMatch = countryCoordinates.find(c => {
-  const countryName = c?.name?.toLowerCase?.();
-  const churchCountry = church?.country?.toLowerCase?.();
-  return countryName && churchCountry && countryName === churchCountry;
-});
+          const countryName = c?.name?.toLowerCase?.();
+          const churchCountry = church?.country?.toLowerCase?.();
+          return countryName && churchCountry && countryName === churchCountry;
+        });
 
         if (countryMatch) {
           updated.push({
@@ -199,7 +199,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
 
     console.log(updated);
-    
+
     return updated;
   }
 
@@ -251,26 +251,26 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
-private startInitialRotation(): Promise<void> {
-  return new Promise(resolve => {
-    const start = performance.now();
-    const rotate = (time: number) => {
-      const elapsed = time - start;
+  private startInitialRotation(): Promise<void> {
+    return new Promise(resolve => {
+      const start = performance.now();
+      const rotate = (time: number) => {
+        const elapsed = time - start;
         if (elapsed < 1000) {
           this.bearing -= 0.5;
           this.map.easeTo({ bearing: this.bearing, duration: 50, easing: t => t });
-        this.animationId = requestAnimationFrame(rotate);
-      } else {
-        // stop rotation after 10 seconds
-        if (this.animationId) cancelAnimationFrame(this.animationId);
-        resolve();
-      }
-    };
+          this.animationId = requestAnimationFrame(rotate);
+        } else {
+          // stop rotation after 10 seconds
+          if (this.animationId) cancelAnimationFrame(this.animationId);
+          resolve();
+        }
+      };
 
-    // Run animation outside Angular’s zone to prevent change detection overhead
-    this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
-  });
-}
+      // Run animation outside Angular’s zone to prevent change detection overhead
+      this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
+    });
+  }
 
 
 
@@ -334,112 +334,143 @@ private startInitialRotation(): Promise<void> {
         index = (index + 1) % this.churches.length;
         this.isFlying = false;
         showNextChurch();
-      }, 5000);
+      }, 17000);
     };
 
     showNextChurch();
   }
 
-private preloadImages(churches: ChurchData[]): void {
-  const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';
-  const uniqueKeys = new Set<string>();
+  private preloadImages(churches: ChurchData[]): void {
+    const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';
+    const uniqueKeys = new Set<string>();
 
-  churches.forEach(church => {
-    let gender = (church.gender || '').toLowerCase().trim();
+    churches.forEach(church => {
+      let gender = (church.gender || '').toLowerCase().trim();
+      const country = (church.country || '').trim();
+      if (!country) return;
+
+      if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
+
+      const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
+      const genderFolder = gender === 'female' ? 'female' : 'male';
+      const fileCountry = countryFolder;
+      const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+
+      const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_1.jpg`;
+      const personImg = encodeURI(rawUrl);
+
+      const cacheKey = `${countryFolder}_${genderFolder}`;
+      if (uniqueKeys.has(cacheKey)) return;
+
+      uniqueKeys.add(cacheKey);
+
+      // Try to load the image and check for errors
+      const img = new Image();
+      img.onload = () => {
+        // Only store if successfully loaded
+        this.imageCache[cacheKey] = personImg;
+      };
+      img.onerror = () => {
+        // Use local fallback if not found or load fails
+        this.imageCache[cacheKey] =
+          gender === 'female'
+            ? 'assets/realwomen.jpg'
+            : 'assets/realperson.jpg';
+      };
+      img.src = personImg;
+    });
+  }
+
+  private getImageForChurch(church: ChurchData): string {
+    const gender = (church.gender || '').toLowerCase().trim();
     const country = (church.country || '').trim();
-    if (!country) return;
-
-    if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
-
     const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
     const genderFolder = gender === 'female' ? 'female' : 'male';
-    const fileCountry = countryFolder;
-    const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
-
-    const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_1.jpg`;
-    const personImg = encodeURI(rawUrl);
-
     const cacheKey = `${countryFolder}_${genderFolder}`;
-    if (uniqueKeys.has(cacheKey)) return;
 
-    uniqueKeys.add(cacheKey);
-
-    // Try to load the image and check for errors
-    const img = new Image();
-    img.onload = () => {
-      // Only store if successfully loaded
-      this.imageCache[cacheKey] = personImg;
-    };
-    img.onerror = () => {
-      // Use local fallback if not found or load fails
-      this.imageCache[cacheKey] =
-        gender === 'female'
-          ? 'assets/realwomen.jpg'
-          : 'assets/realperson.jpg';
-    };
-    img.src = personImg;
-  });
-}
-
-private getImageForChurch(church: ChurchData): string {
-  const gender = (church.gender || '').toLowerCase().trim();
-  const country = (church.country || '').trim();
-  const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
-  const genderFolder = gender === 'female' ? 'female' : 'male';
-  const cacheKey = `${countryFolder}_${genderFolder}`;
-
-  // If cache is not ready yet or image failed, fallback safely
-  if (this.imageCache[cacheKey]) {
-    return this.imageCache[cacheKey];
-  } else {
-    return gender === 'female'
-      ? 'assets/realwomen.jpg'
-      : 'assets/realperson.jpg';
+    // If cache is not ready yet or image failed, fallback safely
+    if (this.imageCache[cacheKey]) {
+      return this.imageCache[cacheKey];
+    } else {
+      return gender === 'female'
+        ? 'assets/realwomen.jpg'
+        : 'assets/realperson.jpg';
+    }
   }
-}
 
-private buildPopupCard(church: ChurchData): string {
-  const personImg = this.getImageForChurch(church);
+  private buildPopupCard(church: ChurchData): string {
+    const personImg = this.getImageForChurch(church);
 
-  // Conditionally include language only if it's not empty
-  const languageHtml = church.language && church.language.trim() !== ''
-    ? `<h3 style="margin:0; font-size:14px;">Language: ${church.language}</h3>`
-    : '';
+    // Conditionally include language row only if it's not empty
+    const languageRow =
+      church.language && church.language.trim() !== ''
+        ? `
+        <tr>
+          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Language:</td>
+          <td padding:2px 0;" style="font-weight:bold;font-size:14px;">${church.language}</td>
+        </tr>`
+        : '';
 
-  return `
+    return `
     <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:140px; object-fit:cover; border-radius:8px;"/>
-      <h2 style="margin:8px 0 4px; font-size:16px;">Country: ${church.country}</h2>
-      ${languageHtml}
-      <h3 style="margin:0; font-size:14px;">Activity: ${church.activity}</h3>
+      <img 
+        src="${personImg}" 
+        alt="${church.gender}" 
+        style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;"
+      />
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:16px;">Country:</td>
+          <td padding:2px 0;" style="font-weight:bold;font-size:16px;">${church.country}</td>
+        </tr>
+        ${languageRow}
+        <tr>
+          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Activity:</td>
+          <td padding:2px 0;" style="font-weight:bold;font-size:14px;">${church.activity}</td>
+        </tr>
+      </table>
     </div>
   `;
-}
+  }
+
+
 
 
   private buildSmallPopup(church: ChurchData): string {
     const personImg = this.getImageForChurch(church);
-    const languageHtml = church.language && church.language.trim() !== ''
-    ? `<p style="margin:0; font-size:6px;">Language: ${church.language}</p>`
-    : '';
-//  let personImg: string;
+    const languageRow =
+      church.language && church.language.trim() !== ''
+        ? `
+        <tr>
+          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:6px;">Language:</td>
+          <td padding:1px 0;" style="font-weight:bold;font-size:6px;">${church.language}</td>
+        </tr>`
+        : '';
+    //  let personImg: string;
 
-//     if (!church.gender || church.gender.trim() === '') {
-//       personImg = 'assets/realperson.jpg';
-//     } else if (church.gender.toLowerCase() === 'male') {
-//       personImg = 'assets/realperson.jpg';
-//     } else if (church.gender.toLowerCase() === 'female') {
-//       personImg = 'assets/realwomen.jpg';
-//     } else {
-//       personImg = 'assets/Personicon.jpg';
-//     }
+    //     if (!church.gender || church.gender.trim() === '') {
+    //       personImg = 'assets/realperson.jpg';
+    //     } else if (church.gender.toLowerCase() === 'male') {
+    //       personImg = 'assets/realperson.jpg';
+    //     } else if (church.gender.toLowerCase() === 'female') {
+    //       personImg = 'assets/realwomen.jpg';
+    //     } else {
+    //       personImg = 'assets/Personicon.jpg';
+    //     }
     return `
     <div style="width:120px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:80px; object-fit:cover; border-radius:8px;"/>
-      <h2 style="margin:8px 0 4px; font-size:12px;">Country: ${church.country}</p>
-        
-          ${languageHtml}
-        <p style="margin:0; font-size:10px;">Activity: ${church.activity}</h3>
+      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:80px; object-fit:cover; border-radius:4px; margin-bottom:4px;"/>
+        <table style="width:100%; border-collapse:collapse;">
+        <tr>
+          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:8px;"">Country:</td>
+          <td padding:1px 0;" style="font-weight:bold;font-size:8px;">${church.country}</td>
+        </tr>
+        ${languageRow}
+        <tr>
+          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:6px;">Activity:</td>
+          <td padding:1px 0;" style="font-weight:bold;font-size:6px;">${church.activity}</td>
+        </tr>
+      </table>
     </div>
   `;
   }
