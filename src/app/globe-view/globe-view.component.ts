@@ -345,8 +345,7 @@ private startChurchSlideshow(): void {
       }
       index = (index + 1) % this.churches.length;
       this.isFlying = false;
-      // Small delay to ensure clean transition
-      setTimeout(showNextChurch, 500);
+      showNextChurch();
     }, 17000);
   };
 
@@ -395,22 +394,36 @@ private startChurchSlideshow(): void {
     });
   }
 
-  private getImageForChurch(church: ChurchData): string {
-    const gender = (church.gender || '').toLowerCase().trim();
-    const country = (church.country || '').trim();
-    const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
-    const genderFolder = gender === 'female' ? 'female' : 'male';
-    const cacheKey = `${countryFolder}_${genderFolder}`;
+private getImageForChurch(church: ChurchData): string {
+  const gender = (church.gender || '').toLowerCase().trim();
+  const country = (church.country || '').trim();
 
-    // If cache is not ready yet or image failed, fallback safely
-    if (this.imageCache[cacheKey]) {
-      return this.imageCache[cacheKey];
-    } else {
-      return gender === 'female'
-        ? 'assets/realwomen.jpg'
-        : 'assets/realperson.jpg';
-    }
+  const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
+  const genderFolder = gender === 'female' ? 'female' : 'male';
+  const cacheKey = `${countryFolder}_${genderFolder}`;
+
+
+  if (country.toLowerCase() === 'brazil') {
+    const totalImages = 14;
+    const randomIndex = Math.floor(Math.random() * totalImages) + 1;
+
+    const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';
+    const fileCountry = countryFolder;
+    const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+
+    const personImg = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${randomIndex}.jpg`;
+    return encodeURI(personImg);
   }
+
+  if (this.imageCache[cacheKey]) {
+    return this.imageCache[cacheKey];
+  } else {
+    return gender === 'female'
+      ? 'assets/realwomen.jpg'
+      : 'assets/realperson.jpg';
+  }
+}
+
 
   private buildPopupCard(church: ChurchData): string {
     const personImg = this.getImageForChurch(church);
