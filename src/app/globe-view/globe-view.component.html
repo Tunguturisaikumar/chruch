@@ -3,12 +3,13 @@
   <p>Loading map...</p>
 </div>
 <div [hidden]="loading" class="header">
- 
-    <img src="./assets/logo.jpg" alt="logo" width="10%" height="5%">
+
+  <img src="./assets/logo.jpg" alt="logo" width="10%" height="5%">
 
 
   <div class="quotation-container">
-    <p class="quotation-line english">“For God so loved the world that He gave His only begotten Son, that whoever believes in Him should not perish but have everlasting life.” — John 3:16</p>
+    <p class="quotation-line english">“For God so loved the world that He gave His only begotten Son, that whoever
+      believes in Him should not perish but have everlasting life.” — John 3:16</p>
     <p class="quotation-line translated">{{ currentTranslatedQuote }}</p>
   </div>
 
@@ -24,7 +25,18 @@
 </div>
 
 <!-- Popup -->
+<!-- Popup Card -->
 <div class="menu-popup" *ngIf="isMenuOpen" (click)="$event.stopPropagation()">
-  <i class="fas fa-church"></i>
-  <i class="fas fa-user-circle"></i>
+  <div class="menu-card">
+    <div class="zoom-controls">
+      <button type="button" class="btn btn-outline-info" (click)="zoomIn()">ZOOM IN +</button>
+      &nbsp;
+      <button type="button" class="btn btn-outline-info" (click)="zoomOut()">ZOOM OUT -</button>
+    </div>
+
+    <div class="logo-box">
+      <img src="assets/logo.jpg" alt="Logo" />
+    </div>
+  </div>
 </div>
+

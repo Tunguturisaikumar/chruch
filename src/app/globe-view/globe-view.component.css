@@ -226,3 +226,21 @@
   opacity: 0.9;
   transform: scale(0.95);
 }
+
+/* Logo Box at Bottom */
+.logo-box {
+  width: 100%;
+  height: 60px;
+  border: 0px solid #000;
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.logo-box img {
+  width: 50%;
+  height: 50%;
+  object-fit: contain;
+}

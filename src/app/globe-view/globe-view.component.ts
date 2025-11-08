@@ -117,10 +117,35 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   isMenuOpen = false;
   private previousCountryPopups: mapboxgl.Popup[] = [];
   private lastCountry: string | null = null;
+  private isMainPopupActive = false;
+
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
     this.isMenuOpen = !this.isMenuOpen;
   }
+
+  zoomIn() {
+  if (this.map) {
+    const currentZoom = this.map.getZoom();
+    this.map.easeTo({
+      zoom: currentZoom + 1,
+      duration: 1000,
+      easing: t => t * (2 - t) // smooth ease-out animation
+    });
+  }
+}
+
+zoomOut() {
+  if (this.map) {
+    const currentZoom = this.map.getZoom();
+    this.map.easeTo({
+      zoom: currentZoom - 1,
+      duration: 1000,
+      easing: t => t * (2 - t)
+    });
+  }
+}
+
   constructor(private ngZone: NgZone, private http: HttpClient) { }
 
   ngOnInit(): void {
@@ -334,6 +359,7 @@ private startChurchSlideshow(): void {
       .setHTML(this.buildPopupCard(church))
       .setLngLat([church.longitude, church.latitude])
       .addTo(this.map);
+      this.isMainPopupActive = true;
 
     shownChurches.push(church);
 
@@ -342,6 +368,7 @@ private startChurchSlideshow(): void {
       if (currentMainPopup) {
         currentMainPopup.remove();
         currentMainPopup = null;
+        this.isMainPopupActive = false; 
       }
       index = (index + 1) % this.churches.length;
       this.isFlying = false;
@@ -554,10 +581,18 @@ private getImageForChurch(church: ChurchData): string {
       .setLngLat([church.longitude, church.latitude])
       .addTo(this.map);
 
-    el.addEventListener('mouseenter', () =>
-      popup.addTo(this.map).setLngLat([church.longitude, church.latitude])
-    );
-    el.addEventListener('mouseleave', () => popup.remove());
+el.addEventListener('mouseenter', () => {
+  if (!this.isMainPopupActive) {
+    popup.addTo(this.map).setLngLat([church.longitude, church.latitude]);
+  }
+});
+
+el.addEventListener('mouseleave', () => {
+  if (!this.isMainPopupActive) {
+    popup.remove();
+  }
+});
+
 
     return marker;
   }
