@@ -1,3 +1,8 @@
+/* =========================
+   Base / original styles
+   (kept mostly as you provided)
+   ========================= */
+
 :host {
   display: block;
   height: 100vh;
@@ -21,31 +26,34 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); /* subtle shadow */
   z-index: 10;
   width: 85%; /* fixed width, same as quotation container */
+  max-width: 1200px;
 }
 
 /* Logo section */
 .logo {
   font-size: 40px;
   font-weight: bold;
-  color: #fff;
+  color: #000;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
+.logo img {
+  max-height: 46px;
+  object-fit: contain;
+}
 .logo i {
-  color: #fff;
+  color: #000;
   font-size: 22px;
 }
 
 /* Profile icon */
 .profile i {
   font-size: 30px;
-  color: #fff;
+  color: #000;
   cursor: pointer;
   transition: opacity 0.3s ease;
 }
-
 .profile i:hover {
   opacity: 0.7;
 }
@@ -57,6 +65,7 @@
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 1;
 }
 
 /* Remove default white popup background */
@@ -81,6 +90,7 @@
   box-shadow: none; /* remove shadow */
   width: auto; /* allow it to shrink/grow */
   text-align: center;
+  padding: 4px 12px;
 }
 
 /* English quote line (always visible) */
@@ -118,7 +128,7 @@
   }
 }
 
-
+/* Loader */
 .map-loader {
   position: fixed;
   top: 0;
@@ -143,12 +153,12 @@
   animation: spin 1s linear infinite;
   margin-bottom: 10px;
 }
-
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
-/* Menu button at bottom-left */
+
+/* Menu button at bottom-left (keeps same position/feel) */
 .menu-button {
   position: fixed;
   bottom: 25px;
@@ -163,84 +173,268 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
   cursor: pointer;
   z-index: 20;
-  transition: transform 0.2s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  border: 1px solid rgba(0,0,0,0.06);
 }
-
 .menu-button:hover {
   transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
 }
-
 .menu-button i {
   font-size: 22px;
-  color: #000;
+  color: #111;
 }
 
-/* Popup container */
+/* =======================================
+   Updated: Professional Dashboard Menu
+   (Option 5) — preserves your HTML exactly
+   ======================================= */
+
+/* Popup container (size + positioning) */
 .menu-popup {
   position: fixed;
   bottom: 90px;
   left: 25px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 10px 15px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+/* Card container */
+.menu-card {
+  width: 330px;
+  max-width: calc(100vw - 50px);
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  animation: fadeInUp 0.25s ease forwards;
-  z-index: 20;
+  align-items: stretch;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #111;
+  transform-origin: bottom left;
 }
 
-.menu-popup i {
-  font-size: 24px;
-  color: #000;
+/* Title-like small label — optional (if you want to add later) */
+.menu-card .section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a4a4a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* Zoom controls row (keeps your existing button markup) */
+.zoom-controls {
+  display: flex;
+  gap: 20px;
+  justify-content: center !important;
+  align-items: center !important;
+  /* flex-wrap: wrap; */
+}
+
+/* Provide consistent look for your btn.btn-outline-info */
+.btn.btn-outline-info {
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-height: 42px;
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  background: #f1fbfc; /* soft tint */
+  border: 1px solid #1193a8; /* professional teal */
+  color: #0f6f73;
   cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.btn.btn-outline-info:hover {
+  transform: translateY(-2px);
+  background: #e0f7f8;
+  box-shadow: 0 8px 20px rgba(15,111,115,0.06);
 }
 
-.menu-popup i:hover {
-  transform: scale(1.1);
-  opacity: 0.8;
+/* If other control buttons are used, keep fallback style */
+.control-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: #fafafa;
+  border: 1px solid rgba(0,0,0,0.06);
+  color: #0b4b4e;
 }
 
-/* Animation */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-/* Main popup should always be on top */
-.mapboxgl-popup.main-popup {
-  z-index: 1000 !important;
+/* Slideshow controls (preserve your HTML structure) */
+.slideshow-controls {
+  /* display: flex;
+  flex-direction: column; */
+  gap: 10px;
+  align-items: center;
 }
 
-/* Small popups go behind */
-.mapboxgl-popup.small-popup {
-  z-index: 500 !important;
-  opacity: 0.9;
-  transform: scale(0.95);
+/* Label styling inside slideshow-controls (if present) */
+.slideshow-controls label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
-/* Logo Box at Bottom */
+/* Input row: keep input + Apply button inline and centered */
+.slideshow-controls .input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Numeric input (id=#slideshowSeconds) — nice and compact */
+#slideshowSeconds,
+.number-input {
+  width: 92px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d7da;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #222;
+  background: #fff;
+  min-height: 42px;
+  -moz-appearance: textfield;
+  appearance: none;
+}
+
+/* remove browser spinner */
+#slideshowSeconds::-webkit-outer-spin-button,
+#slideshowSeconds::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Apply button: keep your btn.btn-outline-success but restyle */
+.btn.btn-outline-success,
+.apply-btn,
+.slideshow-controls button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-height: 42px;
+  min-width: 90px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(180deg,#0fa37f,#0c8b6b);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.btn.btn-outline-success:hover,
+.apply-btn:hover,
+.slideshow-controls button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(12,139,107,0.12);
+}
+
+/* Hint text below input showing current delay */
+.slideshow-controls .hint {
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+  margin-top: -2px;
+}
+
+/* Divider line */
+.menu-divider {
+  height: 1px;
+  background: linear-gradient(to right, #e6e6e6, #fbfbfb);
+  border-radius: 2px;
+  margin: 0 4px;
+}
+
+/* Logo box at bottom (kept identical but tuned for card) */
 .logo-box {
   width: 100%;
-  height: 60px;
+  height: 56px;
   border: 0px solid #000;
   border-radius: 10px;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  background: #f8f8f8;
+  border: 1px solid rgba(0,0,0,0.04);
 }
-
 .logo-box img {
-  width: 50%;
-  height: 50%;
+  width: 48%;
+  height: auto;
   object-fit: contain;
 }
+
+/* Map popup z-index tuning (unchanged) */
+.mapboxgl-popup.main-popup {
+  z-index: 1000 !important;
+}
+.mapboxgl-popup.small-popup {
+  z-index: 500 !important;
+  opacity: 0.9;
+  transform: scale(0.95);
+}
+
+/* ======================================
+   Responsive tweaks
+   ====================================== */
+
+/* Tablet & up: spread zoom + input side-by-side visually */
+@media (min-width: 520px) {
+  .menu-card {
+    width: 360px;
+    padding: 16px 18px;
+  }
+
+  .zoom-controls {
+    justify-content: flex-start;
+  }
+
+  .slideshow-controls {
+    align-items: flex-end;
+  }
+
+  /* make zoom and slideshow appear more horizontal if you add grid later */
+}
+
+/* Small screens: compact adjustments */
+@media (max-width: 519px) {
+  .menu-card {
+    width: 280px;
+    padding: 12px;
+  }
+  .btn.btn-outline-info,
+  .btn.btn-outline-success {
+    min-width: 72px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  #slideshowSeconds { width: 72px; }
+  .logo-box { height: 48px; }
+}
+
+/* Very small screens */
+@media (max-width: 360px) {
+  .menu-card { width: calc(100vw - 36px); padding: 10px; }
+  .logo-box { height: 44px; }
+  .btn.btn-outline-info, .btn.btn-outline-success { min-width: 64px; font-size: 13px; padding: 7px 8px; }
+}
+
+/* small utility */
+.text-center { text-align: center !important; }

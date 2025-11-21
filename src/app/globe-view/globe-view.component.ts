@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
+import { FormsModule } from '@angular/forms';
 
 interface ChurchData {
   gender: string;
@@ -119,6 +120,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private lastCountry: string | null = null;
   private isMainPopupActive = false;
 
+  // user controlled slideshow delay (seconds)
+slideshowDelaySeconds: number = 17;   // active value used by slideshow (default 17s)
+tempSlideshowInput: number = 17;      // bound to input so user can change without immediate effect
+
+// internals to allow immediate update while waiting
+private currentDelayTimer: any = null;                 // holds setTimeout id for current wait
+private currentDelayResolve: (() => void) | null = null; // resolve fn for the in-flight wait Promise
+
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
     this.isMenuOpen = !this.isMenuOpen;
@@ -163,6 +172,29 @@ zoomOut() {
       }
     });
   }
+
+  applySlideshowDelay(): void {
+  // sanitize & clamp value between 1 and 60
+  const v = Number(this.tempSlideshowInput) || 17;
+  const clamped = Math.max(1, Math.min(60, Math.floor(v)));
+  this.slideshowDelaySeconds = clamped;
+  this.tempSlideshowInput = clamped; // reflect clamped value in the input
+
+  // If the slideshow is currently waiting, restart that wait using the new value.
+  // We clear the existing timer and start a fresh one that will call the stored resolve
+  // after the new full delay. This makes the new value take effect immediately.
+  if (this.currentDelayTimer && this.currentDelayResolve) {
+    clearTimeout(this.currentDelayTimer);
+    // start a new timer that will call the existing resolve after the updated delay
+    this.currentDelayTimer = setTimeout(() => {
+      const resolve = this.currentDelayResolve;
+      this.currentDelayTimer = null;
+      this.currentDelayResolve = null;
+      if (resolve) resolve();
+    }, this.slideshowDelaySeconds * 1000);
+  }
+}
+
 
   private loadChurchData(): void {
     const apiUrl = 'https://serverold-486354915183.europe-west1.run.app';
@@ -276,26 +308,138 @@ zoomOut() {
     });
   }
 
-  private startInitialRotation(): Promise<void> {
-    return new Promise(resolve => {
-      const start = performance.now();
-      const rotate = (time: number) => {
-        const elapsed = time - start;
-        if (elapsed < 1000) {
-          this.bearing -= 0.5;
-          this.map.easeTo({ bearing: this.bearing, duration: 50, easing: t => t });
-          this.animationId = requestAnimationFrame(rotate);
-        } else {
-          // stop rotation after 10 seconds
-          if (this.animationId) cancelAnimationFrame(this.animationId);
-          resolve();
-        }
-      };
+// 1) Initial rotation: full-rotation(s) over durationMs (default 10s)
+private startInitialRotation(rotations: number = 1, durationMs: number = 10000): Promise<void> {
+  return new Promise(resolve => {
+    const start = performance.now();
+    const totalDegrees = 360 * rotations;
+    // capture starting bearing
+    const startBearing = this.bearing;
 
-      // Run animation outside Angular’s zone to prevent change detection overhead
-      this.ngZone.runOutsideAngular(() => requestAnimationFrame(rotate));
+    const rotateFrame = (time: number) => {
+      const elapsed = time - start;
+      const t = Math.min(elapsed / durationMs, 1); // 0..1 progress
+
+      // compute how many degrees should be completed so far
+      const degreesDone = totalDegrees * t;
+      // set bearing decreasing (matches this.bearing -= 0.5 direction)
+      this.bearing = startBearing - degreesDone;
+
+      // immediate update so repeated frames are visible
+      // use jumpTo for instant frame updates (avoid overlapping eases)
+      this.map.jumpTo({ bearing: this.bearing });
+
+      if (t < 1) {
+        this.animationId = requestAnimationFrame(rotateFrame);
+      } else {
+        if (this.animationId) cancelAnimationFrame(this.animationId);
+        resolve();
+      }
+    };
+
+    this.ngZone.runOutsideAngular(() => {
+      this.animationId = requestAnimationFrame(rotateFrame);
     });
-  }
+  });
+}
+
+
+
+private startInterCardRotation(
+  durationMs: number = 1000,
+  rotations: number = 1,
+  mode: 'global' | 'north' | 'south' = 'global',
+  targetZoom: number = 1.5,
+  zoomDurationMs: number = 300
+): Promise<void> {
+  return new Promise(resolve => {
+    // Remove small popups
+    if (this.previousCountryPopups && this.previousCountryPopups.length > 0) {
+      this.previousCountryPopups.forEach(p => { try { p.remove(); } catch { } });
+      this.previousCountryPopups = [];
+    }
+
+    // Ensure main-popup flag off and hide markers
+    this.isMainPopupActive = false;
+    const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
+    if (hadMarkers) this.hideChurches();
+
+    // Stop ongoing camera animations (flyTo/easeTo)
+    try { (this.map as any).stop && (this.map as any).stop(); } catch (e) {}
+
+    // Choose center & pitch based on mode
+    let neutralCenter: [number, number];
+    let targetPitch = 0;
+
+    if (mode === 'north') {
+      // Use lat 85 instead of 90 because extreme latitudes are often clamped
+      neutralCenter = [0, 85];
+      targetPitch = 0; // keep top-down so it's pole-centered
+    } else if (mode === 'south') {
+      neutralCenter = [0, -85];
+      targetPitch = 0;
+    } else {
+      // 'global' mode: show whole globe with equatorial neutral center
+      neutralCenter = [0, 0];
+      targetPitch = 0; // flat view shows more of the globe
+    }
+
+    // Immediately jump to neutral center + zoom + pitch (no ease)
+    this.map.jumpTo({
+      center: neutralCenter,
+      zoom: targetZoom,
+      bearing: this.bearing,
+      pitch: targetPitch
+    });
+
+    // Wait one RAF to ensure camera is applied, then rotate
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        const totalDegrees = 360 * rotations;
+        const startTime = performance.now();
+        const startBearing = this.bearing;
+
+        const rotateFrame = (time: number) => {
+          const elapsed = time - startTime;
+          const t = Math.min(elapsed / durationMs, 1);
+          const degreesDone = totalDegrees * t;
+
+          // Use decreasing bearing to preserve this.bearing -= 0.5 direction
+          this.bearing = startBearing - degreesDone;
+
+          // Lock center & pitch each frame so rotation is truly around neutralCenter
+          this.map.jumpTo({
+            center: neutralCenter,
+            bearing: this.bearing,
+            zoom: targetZoom,
+            pitch: targetPitch
+          });
+
+          if (t < 1) {
+            this.animationId = requestAnimationFrame(rotateFrame);
+          } else {
+            if (this.animationId) cancelAnimationFrame(this.animationId);
+
+            // Restore markers only if they were present before and zoom is high enough
+            const currentZoom = this.map.getZoom();
+            if (hadMarkers && currentZoom >= 5) {
+              this.showChurches();
+            } else if (hadMarkers) {
+              this.churchMarkers = [];
+            }
+
+            resolve();
+          }
+        };
+
+        this.animationId = requestAnimationFrame(rotateFrame);
+      });
+    });
+  });
+}
+
+
+
 
 
 
@@ -305,7 +449,7 @@ private startChurchSlideshow(): void {
   const shownChurches: ChurchData[] = [];
   let currentMainPopup: mapboxgl.Popup | null = null;
 
-  const showNextChurch = () => {
+  const showNextChurch = async () => {
     if (!this.map || this.isFlying) return;
     this.isFlying = true;
 
@@ -319,7 +463,7 @@ private startChurchSlideshow(): void {
     }
     this.lastCountry = currentCountry;
 
-    // 🚫 Remove previous main popup before creating a new one
+    // Remove previous main popup before creating a new one
     if (currentMainPopup) {
       currentMainPopup.remove();
       currentMainPopup = null;
@@ -359,26 +503,50 @@ private startChurchSlideshow(): void {
       .setHTML(this.buildPopupCard(church))
       .setLngLat([church.longitude, church.latitude])
       .addTo(this.map);
-      this.isMainPopupActive = true;
 
+    this.isMainPopupActive = true;
     shownChurches.push(church);
 
-    // Move to next after 17s
-    setTimeout(() => {
-      if (currentMainPopup) {
-        currentMainPopup.remove();
-        currentMainPopup = null;
-        this.isMainPopupActive = false; 
-      }
-      index = (index + 1) % this.churches.length;
-      this.isFlying = false;
-      showNextChurch();
-    }, 17000);
+// Wait for slideshowDelaySeconds while the card is visible.
+// Uses a cancellable promise so applySlideshowDelay() can restart the wait with the new value.
+await new Promise<void>((res) => {
+  // clear previous if any (shouldn't be any here normally)
+  if (this.currentDelayTimer) {
+    clearTimeout(this.currentDelayTimer);
+    this.currentDelayTimer = null;
+    this.currentDelayResolve = null;
+  }
+
+  this.currentDelayResolve = res;
+  this.currentDelayTimer = setTimeout(() => {
+    this.currentDelayTimer = null;
+    this.currentDelayResolve = null;
+    res();
+  }, this.slideshowDelaySeconds * 1000);
+});
+
+
+    // Remove main popup
+    if (currentMainPopup) {
+      currentMainPopup.remove();
+      currentMainPopup = null;
+      this.isMainPopupActive = false;
+    }
+
+    // After removing main popup: zoom out + rotate for 2 seconds (normal/increasing bearing)
+    await this.startInterCardRotation(500, 1, 'south');
+
+    // move index and continue
+    index = (index + 1) % this.churches.length;
+    this.isFlying = false;
+
+    // show next
+    showNextChurch();
   };
 
+  // Kick off the slideshow
   showNextChurch();
 }
-
 
   private preloadImages(churches: ChurchData[]): void {
     const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';

@@ -33,10 +33,24 @@
       &nbsp;
       <button type="button" class="btn btn-outline-info" (click)="zoomOut()">ZOOM OUT -</button>
     </div>
+    <!-- inside .menu-card (next to zoom-controls) -->
+    <div class="slideshow-controls" style="margin-top:10px;">
+      <label for="slideshowSeconds" style="font-weight:600; margin-right:6px;">
+        Card duration (sec)
+      </label>
+      <input id="slideshowSeconds" type="number" min="1" max="60" [(ngModel)]="tempSlideshowInput"
+        style="width:68px; display:inline-block; margin-right:8px;" />
+      <button type="button" class="btn btn-outline-success" (click)="applySlideshowDelay()">
+        Apply
+      </button>
+      <div style="font-size:12px; margin-top:6px; color:#444;">
+        Current: {{ slideshowDelaySeconds }}s &nbsp; (max 60s)
+      </div>
+    </div>
 
     <div class="logo-box">
       <img src="assets/logo.jpg" alt="Logo" />
     </div>
   </div>
-</div>
 
+</div>
