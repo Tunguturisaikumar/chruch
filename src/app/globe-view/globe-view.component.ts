@@ -298,7 +298,6 @@ zoomOut() {
     this.map.on('style.load', () => this.map.setFog({}));
     this.map.on('load', async () => {
       this.showChurches();
-      await this.startInitialRotation();
       this.startChurchSlideshow();
       this.loading = false;
     });
@@ -345,12 +344,10 @@ private startInitialRotation(rotations: number = 1, durationMs: number = 10000):
 
 
 
-private startInterCardRotation(
-  durationMs: number = 1000,
-  rotations: number = 1,
-  mode: 'global' | 'north' | 'south' = 'global',
-  targetZoom: number = 1.5,
-  zoomDurationMs: number = 300
+private transitionBetweenCards(
+  fromLngLat: [number, number],
+  toLngLat: [number, number],
+  transitionDurationMs: number = 2000
 ): Promise<void> {
   return new Promise(resolve => {
     // Remove small popups
@@ -364,76 +361,68 @@ private startInterCardRotation(
     const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
     if (hadMarkers) this.hideChurches();
 
-    // Stop ongoing camera animations (flyTo/easeTo)
+    // Stop ongoing camera animations
     try { (this.map as any).stop && (this.map as any).stop(); } catch (e) {}
 
-    // Choose center & pitch based on mode
-    let neutralCenter: [number, number];
-    let targetPitch = 0;
-
-    if (mode === 'north') {
-      // Use lat 85 instead of 90 because extreme latitudes are often clamped
-      neutralCenter = [0, 85];
-      targetPitch = 0; // keep top-down so it's pole-centered
-    } else if (mode === 'south') {
-      neutralCenter = [0, -85];
-      targetPitch = 0;
-    } else {
-      // 'global' mode: show whole globe with equatorial neutral center
-      neutralCenter = [0, 0];
-      targetPitch = 0; // flat view shows more of the globe
-    }
-
-    // Immediately jump to neutral center + zoom + pitch (no ease)
-    this.map.jumpTo({
-      center: neutralCenter,
-      zoom: targetZoom,
-      bearing: this.bearing,
-      pitch: targetPitch
-    });
-
-    // Wait one RAF to ensure camera is applied, then rotate
     this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        const totalDegrees = 360 * rotations;
-        const startTime = performance.now();
-        const startBearing = this.bearing;
+      const startTime = performance.now();
+      
+      // Phase 1: Zoom out (0 to 0.33 of duration)
+      // Phase 2: Pan to new location (0.33 to 0.66 of duration)
+      // Phase 3: Zoom in to destination (0.66 to 1.0 of duration)
 
-        const rotateFrame = (time: number) => {
-          const elapsed = time - startTime;
-          const t = Math.min(elapsed / durationMs, 1);
-          const degreesDone = totalDegrees * t;
+      const transitionFrame = (time: number) => {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / transitionDurationMs, 1); // 0 to 1
 
-          // Use decreasing bearing to preserve this.bearing -= 0.5 direction
-          this.bearing = startBearing - degreesDone;
+        let currentLng: number;
+        let currentLat: number;
+        let currentZoom: number;
 
-          // Lock center & pitch each frame so rotation is truly around neutralCenter
-          this.map.jumpTo({
-            center: neutralCenter,
-            bearing: this.bearing,
-            zoom: targetZoom,
-            pitch: targetPitch
-          });
+        if (progress < 0.33) {
+          // Phase 1: Zoom out from current location
+          const phaseProgress = progress / 0.33; // 0 to 1 within this phase
+          currentLng = fromLngLat[0];
+          currentLat = fromLngLat[1];
+          currentZoom = 5 - (5 - 1.5) * phaseProgress; // Zoom from 5 to 1.5
+        } else if (progress < 0.66) {
+          // Phase 2: Pan to new location while at global zoom level
+          const phaseProgress = (progress - 0.33) / 0.33; // 0 to 1 within this phase
+          currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
+          currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
+          currentZoom = 1.5; // Stay at global view
+        } else {
+          // Phase 3: Zoom in to new location
+          const phaseProgress = (progress - 0.66) / 0.34; // 0 to 1 within this phase
+          currentLng = toLngLat[0];
+          currentLat = toLngLat[1];
+          currentZoom = 1.5 + (5 - 1.5) * phaseProgress; // Zoom from 1.5 to 5
+        }
 
-          if (t < 1) {
-            this.animationId = requestAnimationFrame(rotateFrame);
-          } else {
-            if (this.animationId) cancelAnimationFrame(this.animationId);
+        // Use jumpTo for instant frame updates
+        this.map.jumpTo({
+          center: [currentLng, currentLat],
+          zoom: currentZoom,
+          bearing: 0,
+          pitch: 0
+        });
 
-            // Restore markers only if they were present before and zoom is high enough
-            const currentZoom = this.map.getZoom();
-            if (hadMarkers && currentZoom >= 5) {
-              this.showChurches();
-            } else if (hadMarkers) {
-              this.churchMarkers = [];
-            }
+        if (progress < 1) {
+          this.animationId = requestAnimationFrame(transitionFrame);
+        } else {
+          if (this.animationId) cancelAnimationFrame(this.animationId);
 
-            resolve();
+          // Restore markers if they were present and zoom is high enough
+          const finalZoom = this.map.getZoom();
+          if (hadMarkers && finalZoom >= 5) {
+            this.showChurches();
           }
-        };
 
-        this.animationId = requestAnimationFrame(rotateFrame);
-      });
+          resolve();
+        }
+      };
+
+      this.animationId = requestAnimationFrame(transitionFrame);
     });
   });
 }
@@ -533,11 +522,17 @@ await new Promise<void>((res) => {
       this.isMainPopupActive = false;
     }
 
-    // After removing main popup: zoom out + rotate for 2 seconds (normal/increasing bearing)
-    await this.startInterCardRotation(500, 1, 'south');
-
-    // move index and continue
+    // Move to next church before transition
     index = (index + 1) % this.churches.length;
+    const nextChurch = this.churches[index];
+
+    // Transition: zoom out from current location, pan to next, zoom in
+    await this.transitionBetweenCards(
+      [church.longitude, church.latitude],
+      [nextChurch.longitude, nextChurch.latitude],
+      3000 // 2 second transition
+    );
+
     this.isFlying = false;
 
     // show next
