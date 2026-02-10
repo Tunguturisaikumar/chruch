@@ -11,6 +11,9 @@ interface ChurchData {
   activity: string;
   latitude: number;
   longitude: number;
+
+   imageIndex?: number;
+  imageKey?: string;
 }
 
 interface CityData {
@@ -128,6 +131,11 @@ tempSlideshowInput: number = 17;      // bound to input so user can change witho
 private currentDelayTimer: any = null;                 // holds setTimeout id for current wait
 private currentDelayResolve: (() => void) | null = null; // resolve fn for the in-flight wait Promise
 
+private readonly IMAGE_POOL_SIZE = 10;      // default images per country
+private readonly BRAZIL_POOL_SIZE = 14;     // Brazil images
+private readonly IMAGE_COOLDOWN = 5;        // ❗ cannot repeat within last 5 picks
+
+
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
     this.isMenuOpen = !this.isMenuOpen;
@@ -202,7 +210,9 @@ zoomOut() {
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
           this.churches = this.assignCityCoordinates(data);
-          this.preloadImages(this.churches);
+this.assignImagesToChurches(this.churches); // ✅ ADD
+this.preloadImages(this.churches);
+
         } else {
           console.warn('API returned empty data, using fallback.');
           this.churches = this.churches_new;
@@ -543,76 +553,182 @@ await new Promise<void>((res) => {
   showNextChurch();
 }
 
-  private preloadImages(churches: ChurchData[]): void {
-    const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';
-    const uniqueKeys = new Set<string>();
 
-    churches.forEach(church => {
-      let gender = (church.gender || '').toLowerCase().trim();
-      const country = (church.country || '').trim();
-      if (!country) return;
+// Tracks recently used image numbers per country+gender
+private recentImageHistory: {
+  [cacheKey: string]: number[];
+} = {};
 
-      if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
-
-      const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
-      const genderFolder = gender === 'female' ? 'female' : 'male';
-      const fileCountry = countryFolder;
-      const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
-
-      const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_1.jpg`;
-      const personImg = encodeURI(rawUrl);
-
-      const cacheKey = `${countryFolder}_${genderFolder}`;
-      if (uniqueKeys.has(cacheKey)) return;
-
-      uniqueKeys.add(cacheKey);
-
-      // Try to load the image and check for errors
-      const img = new Image();
-      img.onload = () => {
-        // Only store if successfully loaded
-        this.imageCache[cacheKey] = personImg;
-      };
-      img.onerror = () => {
-        // Use local fallback if not found or load fails
-        this.imageCache[cacheKey] =
-          gender === 'female'
-            ? 'assets/realwomen.jpg'
-            : 'assets/realperson.jpg';
-      };
-      img.src = personImg;
-    });
+private getNonRepeatingRandomIndex(
+  cacheKey: string,
+  totalImages: number
+): number {
+  if (!this.recentImageHistory[cacheKey]) {
+    this.recentImageHistory[cacheKey] = [];
   }
+
+  const history = this.recentImageHistory[cacheKey];
+
+  // Build allowed indices (exclude recent history)
+  const allowed: number[] = [];
+  for (let i = 1; i <= totalImages; i++) {
+    if (!history.includes(i)) {
+      allowed.push(i);
+    }
+  }
+
+  // If everything is blocked, reset history
+  if (allowed.length === 0) {
+    history.length = 0;
+    for (let i = 1; i <= totalImages; i++) {
+      allowed.push(i);
+    }
+  }
+
+  // Pick random from allowed
+  const index = allowed[Math.floor(Math.random() * allowed.length)];
+
+  // Update history
+  history.push(index);
+  if (history.length > this.IMAGE_COOLDOWN) {
+    history.shift(); // remove oldest
+  }
+
+  return index;
+}
+
+private assignImagesToChurches(churches: ChurchData[]): void {
+  const history: { [key: string]: number[] } = {};
+
+  churches.forEach(church => {
+    const gender = (church.gender || 'male').toLowerCase();
+    const country = church.country.trim();
+
+    const countryFolder = this.normalizeCountryForFolder(country);
+    const genderFolder = gender === 'female' ? 'female' : 'male';
+
+    const historyKey = `${countryFolder}_${genderFolder}`;
+
+    const totalImages =
+      country.toLowerCase() === 'brazil'
+        ? this.BRAZIL_POOL_SIZE
+        : this.IMAGE_POOL_SIZE;
+
+    const imageIndex = this.getNonRepeatingRandomIndex(
+      historyKey,
+      totalImages
+    );
+
+    church.imageIndex = imageIndex;
+    church.imageKey = `${historyKey}_${imageIndex}`;
+  });
+}
+
+
+
+private preloadImages(churches: ChurchData[]): void {
+  const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
+  const uniqueKeys = new Set<string>();
+
+  churches.forEach(church => {
+    let gender = (church.gender || '').toLowerCase().trim();
+    const country = (church.country || '').trim();
+    if (!country) return;
+
+    if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
+
+    const countryFolder = this.normalizeCountryForFolder(country);
+
+    const genderFolder = gender === 'female' ? 'female' : 'male';
+
+    const fileCountry = countryFolder;
+    const fileGender =
+      gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+
+    const cacheKey = church.imageKey!;
+
+    if (uniqueKeys.has(cacheKey)) return;
+
+    uniqueKeys.add(cacheKey);
+
+const totalImages = country.toLowerCase() === 'brazil'
+  ? this.BRAZIL_POOL_SIZE
+  : this.IMAGE_POOL_SIZE;
+
+// const randomIndex = this.getNonRepeatingRandomIndex(
+//   cacheKey,
+//   totalImages
+// );
+
+
+   const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${church.imageIndex}.png`;
+
+    const personImg = encodeURI(rawUrl);
+
+   this.resolveImage(cacheKey, personImg, gender);
+
+  });
+}
+
+private normalizeCountryForFolder(country: string): string {
+  return country
+    .trim()
+    .split(/\s+/)                 // split by spaces
+    .map(
+      word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    )
+    .join('');                    // remove spaces
+}
+
+private resolveImage(
+  cacheKey: string,
+  imageUrl: string,
+  gender: string
+): void {
+  const img = new Image();
+
+  img.onload = () => {
+    this.imageCache[cacheKey] = imageUrl;
+  };
+
+  img.onerror = () => {
+    this.imageCache[cacheKey] =
+      gender === 'female'
+        ? 'assets/realwomen.jpg'
+        : 'assets/realperson.jpg';
+  };
+
+  img.src = imageUrl;
+}
+
 
 private getImageForChurch(church: ChurchData): string {
-  const gender = (church.gender || '').toLowerCase().trim();
-  const country = (church.country || '').trim();
-
-  const countryFolder = country.charAt(0).toUpperCase() + country.slice(1).toLowerCase();
+  const gender = (church.gender || 'male').toLowerCase();
+  const countryFolder = this.normalizeCountryForFolder(church.country);
   const genderFolder = gender === 'female' ? 'female' : 'male';
-  const cacheKey = `${countryFolder}_${genderFolder}`;
 
+  const cacheKey = church.imageKey!;
+  const index = church.imageIndex!;
 
-  if (country.toLowerCase() === 'brazil') {
-    const totalImages = 14;
-    const randomIndex = Math.floor(Math.random() * totalImages) + 1;
+  if (!this.imageCache[cacheKey]) {
+    const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
+    const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1);
 
-    const bucketBaseUrl = 'https://storage.googleapis.com/my-church-images';
-    const fileCountry = countryFolder;
-    const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+    const imgUrl = encodeURI(
+      `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${countryFolder}_${fileGender}_${index}.png`
+    );
 
-    const personImg = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${randomIndex}.jpg`;
-    return encodeURI(personImg);
+    this.resolveImage(cacheKey, imgUrl, gender);
   }
 
-  if (this.imageCache[cacheKey]) {
-    return this.imageCache[cacheKey];
-  } else {
-    return gender === 'female'
+  return (
+    this.imageCache[cacheKey] ||
+    (gender === 'female'
       ? 'assets/realwomen.jpg'
-      : 'assets/realperson.jpg';
-  }
+      : 'assets/realperson.jpg')
+  );
 }
+
 
 
   private buildPopupCard(church: ChurchData): string {
