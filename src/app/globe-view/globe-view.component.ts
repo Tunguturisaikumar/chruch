@@ -3,6 +3,7 @@ import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
 import { FormsModule } from '@angular/forms';
+import { environment } from 'src/environments/environment';
 
 interface ChurchData {
   gender: string;
@@ -272,7 +273,7 @@ this.preloadImages(this.churches);
 
   initializeMap(): void {
     (mapboxgl as any).accessToken =
-      'pk.eyJ1Ijoic2Fpa3VtYXJ0dW5ndXR1cmkiLCJhIjoiY21laDkzMGR0MDUycjJrcDZqN2xleXc3biJ9.73urhh9weHk5tslJYZ0vhQ';
+      environment.mapboxToken;
 
     this.map = new mapboxgl.Map({
       container: 'globe-map',
