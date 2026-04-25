@@ -9,7 +9,7 @@ interface ChurchData {
   gender: string;
   country: string;
   language: string;
-  activity: string;
+  type: string;
   latitude: number;
   longitude: number;
 
@@ -206,7 +206,7 @@ zoomOut() {
 
 
   private loadChurchData(): void {
-    const apiUrl = 'https://serverold-486354915183.europe-west1.run.app';
+    const apiUrl = 'https://finalapi-486354915183.europe-north1.run.app/';
     this.http.get<ChurchData[]>(apiUrl).subscribe({
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
@@ -744,14 +744,14 @@ private getImageForChurch(church: ChurchData): string {
         </tr>`
         : '';
 
-  let displayActivity = church.activity;
+  let displayActivity = church.type;
 
   if (
-    church.activity === 'Bible Study Course Started' ||
-    church.activity === 'Bible Study Lesson Finished'
+    church.type === 'Bible Study Course Started' ||
+    church.type === 'Bible Study Lesson Finished' || church.type === 'biblwood'
   ) {
     displayActivity = 'Bible Study';
-  } else if (church.activity === 'Bible Reading Plan Started') {
+  } else if (church.type === 'Bible Reading Plan Started') {
     displayActivity = 'Bible Reading Plan';
   }
 
@@ -791,15 +791,15 @@ private getImageForChurch(church: ChurchData): string {
         </tr>`
         : '';
 
-  // Clean up only specific activity values
-  let displayActivity = church.activity;
+  // Clean up only specific type values
+  let displayActivity = church.type;
 
   if (
-    church.activity === 'Bible Study Course Started' ||
-    church.activity === 'Bible Study Lesson Finished'
+    church.type === 'Bible Study Course Started' ||
+    church.type === 'Bible Study Lesson Finished'
   ) {
     displayActivity = 'Bible Study';
-  } else if (church.activity === 'Bible Reading Plan Started') {
+  } else if (church.type === 'Bible Reading Plan Started') {
     displayActivity = 'Bible Reading Plan';
   }
     //  let personImg: string;
