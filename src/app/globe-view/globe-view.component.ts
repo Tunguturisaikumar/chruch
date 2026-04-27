@@ -9,11 +9,11 @@ interface ChurchData {
   gender: string;
   country: string;
   language: string;
-  type: string;
+  activity: string;
   latitude: number;
   longitude: number;
 
-   imageIndex?: number;
+  imageIndex?: number;
   imageKey?: string;
 }
 
@@ -125,16 +125,16 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private isMainPopupActive = false;
 
   // user controlled slideshow delay (seconds)
-slideshowDelaySeconds: number = 17;   // active value used by slideshow (default 17s)
-tempSlideshowInput: number = 17;      // bound to input so user can change without immediate effect
+  slideshowDelaySeconds: number = 17;   // active value used by slideshow (default 17s)
+  tempSlideshowInput: number = 17;      // bound to input so user can change without immediate effect
 
-// internals to allow immediate update while waiting
-private currentDelayTimer: any = null;                 // holds setTimeout id for current wait
-private currentDelayResolve: (() => void) | null = null; // resolve fn for the in-flight wait Promise
+  // internals to allow immediate update while waiting
+  private currentDelayTimer: any = null;                 // holds setTimeout id for current wait
+  private currentDelayResolve: (() => void) | null = null; // resolve fn for the in-flight wait Promise
 
-private readonly IMAGE_POOL_SIZE = 10;      // default images per country
-private readonly BRAZIL_POOL_SIZE = 14;     // Brazil images
-private readonly IMAGE_COOLDOWN = 5;        // ❗ cannot repeat within last 5 picks
+  private readonly IMAGE_POOL_SIZE = 10;      // default images per country
+  private readonly BRAZIL_POOL_SIZE = 14;     // Brazil images
+  private readonly IMAGE_COOLDOWN = 5;        // ❗ cannot repeat within last 5 picks
 
 
   toggleMenu(event: MouseEvent) {
@@ -143,26 +143,26 @@ private readonly IMAGE_COOLDOWN = 5;        // ❗ cannot repeat within last 5 p
   }
 
   zoomIn() {
-  if (this.map) {
-    const currentZoom = this.map.getZoom();
-    this.map.easeTo({
-      zoom: currentZoom + 1,
-      duration: 1000,
-      easing: t => t * (2 - t) // smooth ease-out animation
-    });
+    if (this.map) {
+      const currentZoom = this.map.getZoom();
+      this.map.easeTo({
+        zoom: currentZoom + 1,
+        duration: 1000,
+        easing: t => t * (2 - t) // smooth ease-out animation
+      });
+    }
   }
-}
 
-zoomOut() {
-  if (this.map) {
-    const currentZoom = this.map.getZoom();
-    this.map.easeTo({
-      zoom: currentZoom - 1,
-      duration: 1000,
-      easing: t => t * (2 - t)
-    });
+  zoomOut() {
+    if (this.map) {
+      const currentZoom = this.map.getZoom();
+      this.map.easeTo({
+        zoom: currentZoom - 1,
+        duration: 1000,
+        easing: t => t * (2 - t)
+      });
+    }
   }
-}
 
   constructor(private ngZone: NgZone, private http: HttpClient) { }
 
@@ -183,36 +183,36 @@ zoomOut() {
   }
 
   applySlideshowDelay(): void {
-  // sanitize & clamp value between 1 and 60
-  const v = Number(this.tempSlideshowInput) || 17;
-  const clamped = Math.max(1, Math.min(60, Math.floor(v)));
-  this.slideshowDelaySeconds = clamped;
-  this.tempSlideshowInput = clamped; // reflect clamped value in the input
+    // sanitize & clamp value between 1 and 60
+    const v = Number(this.tempSlideshowInput) || 17;
+    const clamped = Math.max(1, Math.min(60, Math.floor(v)));
+    this.slideshowDelaySeconds = clamped;
+    this.tempSlideshowInput = clamped; // reflect clamped value in the input
 
-  // If the slideshow is currently waiting, restart that wait using the new value.
-  // We clear the existing timer and start a fresh one that will call the stored resolve
-  // after the new full delay. This makes the new value take effect immediately.
-  if (this.currentDelayTimer && this.currentDelayResolve) {
-    clearTimeout(this.currentDelayTimer);
-    // start a new timer that will call the existing resolve after the updated delay
-    this.currentDelayTimer = setTimeout(() => {
-      const resolve = this.currentDelayResolve;
-      this.currentDelayTimer = null;
-      this.currentDelayResolve = null;
-      if (resolve) resolve();
-    }, this.slideshowDelaySeconds * 1000);
+    // If the slideshow is currently waiting, restart that wait using the new value.
+    // We clear the existing timer and start a fresh one that will call the stored resolve
+    // after the new full delay. This makes the new value take effect immediately.
+    if (this.currentDelayTimer && this.currentDelayResolve) {
+      clearTimeout(this.currentDelayTimer);
+      // start a new timer that will call the existing resolve after the updated delay
+      this.currentDelayTimer = setTimeout(() => {
+        const resolve = this.currentDelayResolve;
+        this.currentDelayTimer = null;
+        this.currentDelayResolve = null;
+        if (resolve) resolve();
+      }, this.slideshowDelaySeconds * 1000);
+    }
   }
-}
 
 
   private loadChurchData(): void {
-    const apiUrl = 'https://finalapi-486354915183.europe-north1.run.app/';
+    const apiUrl = 'https://finaloneapi-486354915183.europe-north1.run.app/';
     this.http.get<ChurchData[]>(apiUrl).subscribe({
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
           this.churches = this.assignCityCoordinates(data);
-this.assignImagesToChurches(this.churches); // ✅ ADD
-this.preloadImages(this.churches);
+          this.assignImagesToChurches(this.churches); // ✅ ADD
+          this.preloadImages(this.churches);
 
         } else {
           console.warn('API returned empty data, using fallback.');
@@ -318,417 +318,417 @@ this.preloadImages(this.churches);
     });
   }
 
-// 1) Initial rotation: full-rotation(s) over durationMs (default 10s)
-private startInitialRotation(rotations: number = 1, durationMs: number = 10000): Promise<void> {
-  return new Promise(resolve => {
-    const start = performance.now();
-    const totalDegrees = 360 * rotations;
-    // capture starting bearing
-    const startBearing = this.bearing;
+  // 1) Initial rotation: full-rotation(s) over durationMs (default 10s)
+  private startInitialRotation(rotations: number = 1, durationMs: number = 10000): Promise<void> {
+    return new Promise(resolve => {
+      const start = performance.now();
+      const totalDegrees = 360 * rotations;
+      // capture starting bearing
+      const startBearing = this.bearing;
 
-    const rotateFrame = (time: number) => {
-      const elapsed = time - start;
-      const t = Math.min(elapsed / durationMs, 1); // 0..1 progress
+      const rotateFrame = (time: number) => {
+        const elapsed = time - start;
+        const t = Math.min(elapsed / durationMs, 1); // 0..1 progress
 
-      // compute how many degrees should be completed so far
-      const degreesDone = totalDegrees * t;
-      // set bearing decreasing (matches this.bearing -= 0.5 direction)
-      this.bearing = startBearing - degreesDone;
+        // compute how many degrees should be completed so far
+        const degreesDone = totalDegrees * t;
+        // set bearing decreasing (matches this.bearing -= 0.5 direction)
+        this.bearing = startBearing - degreesDone;
 
-      // immediate update so repeated frames are visible
-      // use jumpTo for instant frame updates (avoid overlapping eases)
-      this.map.jumpTo({ bearing: this.bearing });
+        // immediate update so repeated frames are visible
+        // use jumpTo for instant frame updates (avoid overlapping eases)
+        this.map.jumpTo({ bearing: this.bearing });
 
-      if (t < 1) {
-        this.animationId = requestAnimationFrame(rotateFrame);
-      } else {
-        if (this.animationId) cancelAnimationFrame(this.animationId);
-        resolve();
-      }
-    };
-
-    this.ngZone.runOutsideAngular(() => {
-      this.animationId = requestAnimationFrame(rotateFrame);
-    });
-  });
-}
-
-
-
-private transitionBetweenCards(
-  fromLngLat: [number, number],
-  toLngLat: [number, number],
-  transitionDurationMs: number = 2000
-): Promise<void> {
-  return new Promise(resolve => {
-    // Remove small popups
-    if (this.previousCountryPopups && this.previousCountryPopups.length > 0) {
-      this.previousCountryPopups.forEach(p => { try { p.remove(); } catch { } });
-      this.previousCountryPopups = [];
-    }
-
-    // Ensure main-popup flag off and hide markers
-    this.isMainPopupActive = false;
-    const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
-    if (hadMarkers) this.hideChurches();
-
-    // Stop ongoing camera animations
-    try { (this.map as any).stop && (this.map as any).stop(); } catch (e) {}
-
-    this.ngZone.runOutsideAngular(() => {
-      const startTime = performance.now();
-      
-      // Phase 1: Zoom out (0 to 0.33 of duration)
-      // Phase 2: Pan to new location (0.33 to 0.66 of duration)
-      // Phase 3: Zoom in to destination (0.66 to 1.0 of duration)
-
-      const transitionFrame = (time: number) => {
-        const elapsed = time - startTime;
-        const progress = Math.min(elapsed / transitionDurationMs, 1); // 0 to 1
-
-        let currentLng: number;
-        let currentLat: number;
-        let currentZoom: number;
-
-        if (progress < 0.33) {
-          // Phase 1: Zoom out from current location
-          const phaseProgress = progress / 0.33; // 0 to 1 within this phase
-          currentLng = fromLngLat[0];
-          currentLat = fromLngLat[1];
-          currentZoom = 5 - (5 - 1.5) * phaseProgress; // Zoom from 5 to 1.5
-        } else if (progress < 0.66) {
-          // Phase 2: Pan to new location while at global zoom level
-          const phaseProgress = (progress - 0.33) / 0.33; // 0 to 1 within this phase
-          currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
-          currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
-          currentZoom = 1.5; // Stay at global view
-        } else {
-          // Phase 3: Zoom in to new location
-          const phaseProgress = (progress - 0.66) / 0.34; // 0 to 1 within this phase
-          currentLng = toLngLat[0];
-          currentLat = toLngLat[1];
-          currentZoom = 1.5 + (5 - 1.5) * phaseProgress; // Zoom from 1.5 to 5
-        }
-
-        // Use jumpTo for instant frame updates
-        this.map.jumpTo({
-          center: [currentLng, currentLat],
-          zoom: currentZoom,
-          bearing: 0,
-          pitch: 0
-        });
-
-        if (progress < 1) {
-          this.animationId = requestAnimationFrame(transitionFrame);
+        if (t < 1) {
+          this.animationId = requestAnimationFrame(rotateFrame);
         } else {
           if (this.animationId) cancelAnimationFrame(this.animationId);
-
-          // Restore markers if they were present and zoom is high enough
-          const finalZoom = this.map.getZoom();
-          if (hadMarkers && finalZoom >= 5) {
-            this.showChurches();
-          }
-
           resolve();
         }
       };
 
-      this.animationId = requestAnimationFrame(transitionFrame);
+      this.ngZone.runOutsideAngular(() => {
+        this.animationId = requestAnimationFrame(rotateFrame);
+      });
     });
-  });
-}
+  }
 
 
 
+  private transitionBetweenCards(
+    fromLngLat: [number, number],
+    toLngLat: [number, number],
+    transitionDurationMs: number = 2000
+  ): Promise<void> {
+    return new Promise(resolve => {
+      // Remove small popups
+      if (this.previousCountryPopups && this.previousCountryPopups.length > 0) {
+        this.previousCountryPopups.forEach(p => { try { p.remove(); } catch { } });
+        this.previousCountryPopups = [];
+      }
 
+      // Ensure main-popup flag off and hide markers
+      this.isMainPopupActive = false;
+      const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
+      if (hadMarkers) this.hideChurches();
 
+      // Stop ongoing camera animations
+      try { (this.map as any).stop && (this.map as any).stop(); } catch (e) { }
 
+      this.ngZone.runOutsideAngular(() => {
+        const startTime = performance.now();
 
-private startChurchSlideshow(): void {
-  let index = 0;
-  const shownChurches: ChurchData[] = [];
-  let currentMainPopup: mapboxgl.Popup | null = null;
+        // Phase 1: Zoom out (0 to 0.33 of duration)
+        // Phase 2: Pan to new location (0.33 to 0.66 of duration)
+        // Phase 3: Zoom in to destination (0.66 to 1.0 of duration)
 
-  const showNextChurch = async () => {
-    if (!this.map || this.isFlying) return;
-    this.isFlying = true;
+        const transitionFrame = (time: number) => {
+          const elapsed = time - startTime;
+          const progress = Math.min(elapsed / transitionDurationMs, 1); // 0 to 1
 
-    const church = this.churches[index];
-    const currentCountry = church.country;
+          let currentLng: number;
+          let currentLat: number;
+          let currentZoom: number;
 
-    // Remove old country popups if country changes
-    if (this.lastCountry && this.lastCountry !== currentCountry) {
-      this.previousCountryPopups.forEach(p => p.remove());
-      this.previousCountryPopups = [];
-    }
-    this.lastCountry = currentCountry;
+          if (progress < 0.33) {
+            // Phase 1: Zoom out from current location
+            const phaseProgress = progress / 0.33; // 0 to 1 within this phase
+            currentLng = fromLngLat[0];
+            currentLat = fromLngLat[1];
+            currentZoom = 5 - (5 - 1.5) * phaseProgress; // Zoom from 5 to 1.5
+          } else if (progress < 0.66) {
+            // Phase 2: Pan to new location while at global zoom level
+            const phaseProgress = (progress - 0.33) / 0.33; // 0 to 1 within this phase
+            currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
+            currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
+            currentZoom = 1.5; // Stay at global view
+          } else {
+            // Phase 3: Zoom in to new location
+            const phaseProgress = (progress - 0.66) / 0.34; // 0 to 1 within this phase
+            currentLng = toLngLat[0];
+            currentLat = toLngLat[1];
+            currentZoom = 1.5 + (5 - 1.5) * phaseProgress; // Zoom from 1.5 to 5
+          }
 
-    // Remove previous main popup before creating a new one
-    if (currentMainPopup) {
-      currentMainPopup.remove();
-      currentMainPopup = null;
-    }
+          // Use jumpTo for instant frame updates
+          this.map.jumpTo({
+            center: [currentLng, currentLat],
+            zoom: currentZoom,
+            bearing: 0,
+            pitch: 0
+          });
 
-    // Fly to location
-    this.map.flyTo({
-      center: [church.longitude, church.latitude],
-      zoom: 5,
-      speed: 1.5,
-      curve: 1,
-      essential: true
+          if (progress < 1) {
+            this.animationId = requestAnimationFrame(transitionFrame);
+          } else {
+            if (this.animationId) cancelAnimationFrame(this.animationId);
+
+            // Restore markers if they were present and zoom is high enough
+            const finalZoom = this.map.getZoom();
+            if (hadMarkers && finalZoom >= 5) {
+              this.showChurches();
+            }
+
+            resolve();
+          }
+        };
+
+        this.animationId = requestAnimationFrame(transitionFrame);
+      });
     });
+  }
 
-    // Add small popups for previously shown churches (same country)
-    const sameCountryChurches = shownChurches.filter(c => c.country === currentCountry);
-    const recentChurches = sameCountryChurches.slice(-25);
-    recentChurches.forEach(prev => {
-      const smallPopup = new mapboxgl.Popup({
-        offset: 10,
-        closeButton: false,
-        className: 'small-popup'
+
+
+
+
+
+
+  private startChurchSlideshow(): void {
+    let index = 0;
+    const shownChurches: ChurchData[] = [];
+    let currentMainPopup: mapboxgl.Popup | null = null;
+
+    const showNextChurch = async () => {
+      if (!this.map || this.isFlying) return;
+      this.isFlying = true;
+
+      const church = this.churches[index];
+      const currentCountry = church.country;
+
+      // Remove old country popups if country changes
+      if (this.lastCountry && this.lastCountry !== currentCountry) {
+        this.previousCountryPopups.forEach(p => p.remove());
+        this.previousCountryPopups = [];
+      }
+      this.lastCountry = currentCountry;
+
+      // Remove previous main popup before creating a new one
+      if (currentMainPopup) {
+        currentMainPopup.remove();
+        currentMainPopup = null;
+      }
+
+      // Fly to location
+      this.map.flyTo({
+        center: [church.longitude, church.latitude],
+        zoom: 5,
+        speed: 1.5,
+        curve: 1,
+        essential: true
+      });
+
+      // Add small popups for previously shown churches (same country)
+      const sameCountryChurches = shownChurches.filter(c => c.country === currentCountry);
+      const recentChurches = sameCountryChurches.slice(-25);
+      recentChurches.forEach(prev => {
+        const smallPopup = new mapboxgl.Popup({
+          offset: 10,
+          closeButton: false,
+          className: 'small-popup'
+        })
+          .setHTML(this.buildSmallPopup(prev))
+          .setLngLat([prev.longitude + 0.3, prev.latitude + 0.3])
+          .addTo(this.map);
+
+        this.previousCountryPopups.push(smallPopup);
+      });
+
+      // Create new main popup
+      currentMainPopup = new mapboxgl.Popup({
+        offset: 25,
+        closeOnClick: false,
+        className: 'main-popup'
       })
-        .setHTML(this.buildSmallPopup(prev))
-        .setLngLat([prev.longitude + 0.3, prev.latitude + 0.3])
+        .setHTML(this.buildPopupCard(church))
+        .setLngLat([church.longitude, church.latitude])
         .addTo(this.map);
 
-      this.previousCountryPopups.push(smallPopup);
-    });
+      this.isMainPopupActive = true;
+      shownChurches.push(church);
 
-    // Create new main popup
-    currentMainPopup = new mapboxgl.Popup({
-      offset: 25,
-      closeOnClick: false,
-      className: 'main-popup'
-    })
-      .setHTML(this.buildPopupCard(church))
-      .setLngLat([church.longitude, church.latitude])
-      .addTo(this.map);
+      // Wait for slideshowDelaySeconds while the card is visible.
+      // Uses a cancellable promise so applySlideshowDelay() can restart the wait with the new value.
+      await new Promise<void>((res) => {
+        // clear previous if any (shouldn't be any here normally)
+        if (this.currentDelayTimer) {
+          clearTimeout(this.currentDelayTimer);
+          this.currentDelayTimer = null;
+          this.currentDelayResolve = null;
+        }
 
-    this.isMainPopupActive = true;
-    shownChurches.push(church);
-
-// Wait for slideshowDelaySeconds while the card is visible.
-// Uses a cancellable promise so applySlideshowDelay() can restart the wait with the new value.
-await new Promise<void>((res) => {
-  // clear previous if any (shouldn't be any here normally)
-  if (this.currentDelayTimer) {
-    clearTimeout(this.currentDelayTimer);
-    this.currentDelayTimer = null;
-    this.currentDelayResolve = null;
-  }
-
-  this.currentDelayResolve = res;
-  this.currentDelayTimer = setTimeout(() => {
-    this.currentDelayTimer = null;
-    this.currentDelayResolve = null;
-    res();
-  }, this.slideshowDelaySeconds * 1000);
-});
+        this.currentDelayResolve = res;
+        this.currentDelayTimer = setTimeout(() => {
+          this.currentDelayTimer = null;
+          this.currentDelayResolve = null;
+          res();
+        }, this.slideshowDelaySeconds * 1000);
+      });
 
 
-    // Remove main popup
-    if (currentMainPopup) {
-      currentMainPopup.remove();
-      currentMainPopup = null;
-      this.isMainPopupActive = false;
-    }
+      // Remove main popup
+      if (currentMainPopup) {
+        currentMainPopup.remove();
+        currentMainPopup = null;
+        this.isMainPopupActive = false;
+      }
 
-    // Move to next church before transition
-    index = (index + 1) % this.churches.length;
-    const nextChurch = this.churches[index];
+      // Move to next church before transition
+      index = (index + 1) % this.churches.length;
+      const nextChurch = this.churches[index];
 
-    // Transition: zoom out from current location, pan to next, zoom in
-    await this.transitionBetweenCards(
-      [church.longitude, church.latitude],
-      [nextChurch.longitude, nextChurch.latitude],
-      3000 // 2 second transition
-    );
+      // Transition: zoom out from current location, pan to next, zoom in
+      await this.transitionBetweenCards(
+        [church.longitude, church.latitude],
+        [nextChurch.longitude, nextChurch.latitude],
+        3000 // 2 second transition
+      );
 
-    this.isFlying = false;
+      this.isFlying = false;
 
-    // show next
+      // show next
+      showNextChurch();
+    };
+
+    // Kick off the slideshow
     showNextChurch();
-  };
-
-  // Kick off the slideshow
-  showNextChurch();
-}
-
-
-// Tracks recently used image numbers per country+gender
-private recentImageHistory: {
-  [cacheKey: string]: number[];
-} = {};
-
-private getNonRepeatingRandomIndex(
-  cacheKey: string,
-  totalImages: number
-): number {
-  if (!this.recentImageHistory[cacheKey]) {
-    this.recentImageHistory[cacheKey] = [];
   }
 
-  const history = this.recentImageHistory[cacheKey];
 
-  // Build allowed indices (exclude recent history)
-  const allowed: number[] = [];
-  for (let i = 1; i <= totalImages; i++) {
-    if (!history.includes(i)) {
-      allowed.push(i);
+  // Tracks recently used image numbers per country+gender
+  private recentImageHistory: {
+    [cacheKey: string]: number[];
+  } = {};
+
+  private getNonRepeatingRandomIndex(
+    cacheKey: string,
+    totalImages: number
+  ): number {
+    if (!this.recentImageHistory[cacheKey]) {
+      this.recentImageHistory[cacheKey] = [];
     }
-  }
 
-  // If everything is blocked, reset history
-  if (allowed.length === 0) {
-    history.length = 0;
+    const history = this.recentImageHistory[cacheKey];
+
+    // Build allowed indices (exclude recent history)
+    const allowed: number[] = [];
     for (let i = 1; i <= totalImages; i++) {
-      allowed.push(i);
+      if (!history.includes(i)) {
+        allowed.push(i);
+      }
     }
+
+    // If everything is blocked, reset history
+    if (allowed.length === 0) {
+      history.length = 0;
+      for (let i = 1; i <= totalImages; i++) {
+        allowed.push(i);
+      }
+    }
+
+    // Pick random from allowed
+    const index = allowed[Math.floor(Math.random() * allowed.length)];
+
+    // Update history
+    history.push(index);
+    if (history.length > this.IMAGE_COOLDOWN) {
+      history.shift(); // remove oldest
+    }
+
+    return index;
   }
 
-  // Pick random from allowed
-  const index = allowed[Math.floor(Math.random() * allowed.length)];
+  private assignImagesToChurches(churches: ChurchData[]): void {
+    const history: { [key: string]: number[] } = {};
 
-  // Update history
-  history.push(index);
-  if (history.length > this.IMAGE_COOLDOWN) {
-    history.shift(); // remove oldest
+    churches.forEach(church => {
+      const gender = (church.gender || 'male').toLowerCase();
+      const country = church.country.trim();
+
+      const countryFolder = this.normalizeCountryForFolder(country);
+      const genderFolder = gender === 'female' ? 'female' : 'male';
+
+      const historyKey = `${countryFolder}_${genderFolder}`;
+
+      const totalImages =
+        country.toLowerCase() === 'brazil'
+          ? this.BRAZIL_POOL_SIZE
+          : this.IMAGE_POOL_SIZE;
+
+      const imageIndex = this.getNonRepeatingRandomIndex(
+        historyKey,
+        totalImages
+      );
+
+      church.imageIndex = imageIndex;
+      church.imageKey = `${historyKey}_${imageIndex}`;
+    });
   }
 
-  return index;
-}
 
-private assignImagesToChurches(churches: ChurchData[]): void {
-  const history: { [key: string]: number[] } = {};
 
-  churches.forEach(church => {
-    const gender = (church.gender || 'male').toLowerCase();
-    const country = church.country.trim();
+  private preloadImages(churches: ChurchData[]): void {
+    const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
+    const uniqueKeys = new Set<string>();
 
-    const countryFolder = this.normalizeCountryForFolder(country);
-    const genderFolder = gender === 'female' ? 'female' : 'male';
+    churches.forEach(church => {
+      let gender = (church.gender || '').toLowerCase().trim();
+      const country = (church.country || '').trim();
+      if (!country) return;
 
-    const historyKey = `${countryFolder}_${genderFolder}`;
+      if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
 
-    const totalImages =
-      country.toLowerCase() === 'brazil'
+      const countryFolder = this.normalizeCountryForFolder(country);
+
+      const genderFolder = gender === 'female' ? 'female' : 'male';
+
+      const fileCountry = countryFolder;
+      const fileGender =
+        gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+
+      const cacheKey = church.imageKey!;
+
+      if (uniqueKeys.has(cacheKey)) return;
+
+      uniqueKeys.add(cacheKey);
+
+      const totalImages = country.toLowerCase() === 'brazil'
         ? this.BRAZIL_POOL_SIZE
         : this.IMAGE_POOL_SIZE;
 
-    const imageIndex = this.getNonRepeatingRandomIndex(
-      historyKey,
-      totalImages
-    );
-
-    church.imageIndex = imageIndex;
-    church.imageKey = `${historyKey}_${imageIndex}`;
-  });
-}
+      // const randomIndex = this.getNonRepeatingRandomIndex(
+      //   cacheKey,
+      //   totalImages
+      // );
 
 
+      const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${church.imageIndex}.png`;
 
-private preloadImages(churches: ChurchData[]): void {
-  const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
-  const uniqueKeys = new Set<string>();
+      const personImg = encodeURI(rawUrl);
 
-  churches.forEach(church => {
-    let gender = (church.gender || '').toLowerCase().trim();
-    const country = (church.country || '').trim();
-    if (!country) return;
+      this.resolveImage(cacheKey, personImg, gender);
 
-    if (!gender) gender = Math.random() < 0.5 ? 'male' : 'female';
-
-    const countryFolder = this.normalizeCountryForFolder(country);
-
-    const genderFolder = gender === 'female' ? 'female' : 'male';
-
-    const fileCountry = countryFolder;
-    const fileGender =
-      gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
-
-    const cacheKey = church.imageKey!;
-
-    if (uniqueKeys.has(cacheKey)) return;
-
-    uniqueKeys.add(cacheKey);
-
-const totalImages = country.toLowerCase() === 'brazil'
-  ? this.BRAZIL_POOL_SIZE
-  : this.IMAGE_POOL_SIZE;
-
-// const randomIndex = this.getNonRepeatingRandomIndex(
-//   cacheKey,
-//   totalImages
-// );
-
-
-   const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${church.imageIndex}.png`;
-
-    const personImg = encodeURI(rawUrl);
-
-   this.resolveImage(cacheKey, personImg, gender);
-
-  });
-}
-
-private normalizeCountryForFolder(country: string): string {
-  return country
-    .trim()
-    .split(/\s+/)                 // split by spaces
-    .map(
-      word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    )
-    .join('');                    // remove spaces
-}
-
-private resolveImage(
-  cacheKey: string,
-  imageUrl: string,
-  gender: string
-): void {
-  const img = new Image();
-
-  img.onload = () => {
-    this.imageCache[cacheKey] = imageUrl;
-  };
-
-  img.onerror = () => {
-    this.imageCache[cacheKey] =
-      gender === 'female'
-        ? 'assets/realwomen.jpg'
-        : 'assets/realperson.jpg';
-  };
-
-  img.src = imageUrl;
-}
-
-
-private getImageForChurch(church: ChurchData): string {
-  const gender = (church.gender || 'male').toLowerCase();
-  const countryFolder = this.normalizeCountryForFolder(church.country);
-  const genderFolder = gender === 'female' ? 'female' : 'male';
-
-  const cacheKey = church.imageKey!;
-  const index = church.imageIndex!;
-
-  if (!this.imageCache[cacheKey]) {
-    const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
-    const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1);
-
-    const imgUrl = encodeURI(
-      `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${countryFolder}_${fileGender}_${index}.png`
-    );
-
-    this.resolveImage(cacheKey, imgUrl, gender);
+    });
   }
 
-  return (
-    this.imageCache[cacheKey] ||
-    (gender === 'female'
-      ? 'assets/realwomen.jpg'
-      : 'assets/realperson.jpg')
-  );
-}
+  private normalizeCountryForFolder(country: string): string {
+    return country
+      .trim()
+      .split(/\s+/)                 // split by spaces
+      .map(
+        word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      )
+      .join('');                    // remove spaces
+  }
+
+  private resolveImage(
+    cacheKey: string,
+    imageUrl: string,
+    gender: string
+  ): void {
+    const img = new Image();
+
+    img.onload = () => {
+      this.imageCache[cacheKey] = imageUrl;
+    };
+
+    img.onerror = () => {
+      this.imageCache[cacheKey] =
+        gender === 'female'
+          ? 'assets/realwomen.jpg'
+          : 'assets/realperson.jpg';
+    };
+
+    img.src = imageUrl;
+  }
+
+
+  private getImageForChurch(church: ChurchData): string {
+    const gender = (church.gender || 'male').toLowerCase();
+    const countryFolder = this.normalizeCountryForFolder(church.country);
+    const genderFolder = gender === 'female' ? 'female' : 'male';
+
+    const cacheKey = church.imageKey!;
+    const index = church.imageIndex!;
+
+    if (!this.imageCache[cacheKey]) {
+      const bucketBaseUrl = 'https://storage.googleapis.com/my-chruch-images';
+      const fileGender = gender.charAt(0).toUpperCase() + gender.slice(1);
+
+      const imgUrl = encodeURI(
+        `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${countryFolder}_${fileGender}_${index}.png`
+      );
+
+      this.resolveImage(cacheKey, imgUrl, gender);
+    }
+
+    return (
+      this.imageCache[cacheKey] ||
+      (gender === 'female'
+        ? 'assets/realwomen.jpg'
+        : 'assets/realperson.jpg')
+    );
+  }
 
 
 
@@ -744,16 +744,16 @@ private getImageForChurch(church: ChurchData): string {
         </tr>`
         : '';
 
-  let displayActivity = church.type;
+    let displayActivity = church.activity;
 
-  if (
-    church.type === 'Bible Study Course Started' ||
-    church.type === 'Bible Study Lesson Finished' || church.type === 'biblwood'
-  ) {
-    displayActivity = 'Bible Study';
-  } else if (church.type === 'Bible Reading Plan Started') {
-    displayActivity = 'Bible Reading Plan';
-  }
+     if (
+      church.activity == 'Bible Study' ||
+      church.activity == 'Bible Word'
+    ) {
+      displayActivity = 'Bible Study';
+    } else if (church.activity == 'Youversion') {
+      displayActivity = 'Bible Reading Plan';
+    }
 
     return `
     <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
@@ -791,17 +791,17 @@ private getImageForChurch(church: ChurchData): string {
         </tr>`
         : '';
 
-  // Clean up only specific type values
-  let displayActivity = church.type;
+    // Clean up only specific type values
+    let displayActivity = church.activity;
 
-  if (
-    church.type === 'Bible Study Course Started' ||
-    church.type === 'Bible Study Lesson Finished'
-  ) {
-    displayActivity = 'Bible Study';
-  } else if (church.type === 'Bible Reading Plan Started') {
-    displayActivity = 'Bible Reading Plan';
-  }
+    if (
+      church.activity == 'Bible Study' ||
+      church.activity == 'Bible Word'
+    ) {
+      displayActivity = 'Bible Study';
+    } else if (church.activity == 'Youversion') {
+      displayActivity = 'Bible Reading Plan';
+    }
     //  let personImg: string;
 
     //     if (!church.gender || church.gender.trim() === '') {
@@ -861,17 +861,17 @@ private getImageForChurch(church: ChurchData): string {
       .setLngLat([church.longitude, church.latitude])
       .addTo(this.map);
 
-el.addEventListener('mouseenter', () => {
-  if (!this.isMainPopupActive) {
-    popup.addTo(this.map).setLngLat([church.longitude, church.latitude]);
-  }
-});
+    el.addEventListener('mouseenter', () => {
+      if (!this.isMainPopupActive) {
+        popup.addTo(this.map).setLngLat([church.longitude, church.latitude]);
+      }
+    });
 
-el.addEventListener('mouseleave', () => {
-  if (!this.isMainPopupActive) {
-    popup.remove();
-  }
-});
+    el.addEventListener('mouseleave', () => {
+      if (!this.isMainPopupActive) {
+        popup.remove();
+      }
+    });
 
 
     return marker;
