@@ -736,7 +736,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const personImg = this.getImageForChurch(church);
 
     const languageRow =
-      church.language && church.language.trim() !== ''
+      church.language &&
+      church.language !== null &&
+      church.language !== undefined &&
+      church.language.toString().trim().toLowerCase() !== 'null' &&
+      church.language.toString().trim() !== ''
         ? `
         <tr>
           <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Language:</td>
@@ -746,13 +750,12 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     let displayActivity = church.activity;
 
-     if (
-      church.activity == 'Bible Study' ||
-      church.activity == 'Bible Word'
-    ) {
-      displayActivity = 'Bible Study';
+     if (church.activity == 'Bible Study') {
+      displayActivity = 'Bible Study Lesson Finished';
     } else if (church.activity == 'Youversion') {
       displayActivity = 'Bible Reading Plan';
+    } else if (church.activity == 'Bible Word') {
+      displayActivity = 'Website Visitor';
     }
 
     return `
@@ -783,7 +786,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private buildSmallPopup(church: ChurchData): string {
     const personImg = this.getImageForChurch(church);
     const languageRow =
-      church.language && church.language.trim() !== ''
+      church.language &&
+      church.language !== null &&
+      church.language !== undefined &&
+      church.language.toString().trim().toLowerCase() !== 'null' &&
+      church.language.toString().trim() !== ''
         ? `
         <tr>
           <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:6px;">Language:</td>
@@ -794,13 +801,12 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     // Clean up only specific type values
     let displayActivity = church.activity;
 
-    if (
-      church.activity == 'Bible Study' ||
-      church.activity == 'Bible Word'
-    ) {
-      displayActivity = 'Bible Study';
+     if (church.activity == 'Bible Study') {
+      displayActivity = 'Bible Study Lesson Finished';
     } else if (church.activity == 'Youversion') {
       displayActivity = 'Bible Reading Plan';
+    } else if (church.activity == 'Bible Word') {
+      displayActivity = 'Website Visitor';
     }
     //  let personImg: string;
 

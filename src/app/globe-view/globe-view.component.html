@@ -23,7 +23,27 @@
 <div class="menu-button" (click)="toggleMenu($event)">
   <i class="fas fa-bars"></i>
 </div>
+  <div class="bottom-instructions">
+  <div class="instruction-box">
+    <h4>Search</h4>
+    <p>Type at least 3 characters to find churches globally.</p>
+  </div>
 
+  <div class="instruction-box">
+    <h4>Zoom</h4>
+    <p>Use zoom controls or scroll to explore locations.</p>
+  </div>
+
+  <div class="instruction-box">
+    <h4>Slideshow</h4>
+    <p>Adjust card duration from the menu panel.</p>
+  </div>
+
+  <div class="instruction-box">
+    <h4>Click Markers</h4>
+    <p>Select markers to view church details.</p>
+  </div>
+</div>
 <!-- Popup -->
 <!-- Popup Card -->
 <div class="menu-popup" *ngIf="isMenuOpen" (click)="$event.stopPropagation()">
@@ -52,5 +72,7 @@
       <img src="assets/logo.jpg" alt="Logo" />
     </div>
   </div>
+
+
 
 </div>

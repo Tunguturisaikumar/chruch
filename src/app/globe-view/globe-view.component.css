@@ -438,3 +438,57 @@
 
 /* small utility */
 .text-center { text-align: center !important; }
+.bottom-instructions {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 900px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  z-index: 15;
+}
+
+/* Individual box */
+.instruction-box {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border: 1px solid rgba(0,0,0,0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.instruction-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+}
+
+.instruction-box h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f6f73;
+}
+
+.instruction-box p {
+  margin: 0;
+  font-size: 12px;
+  color: #444;
+}
+
+@media (max-width: 768px) {
+  .bottom-instructions {
+    grid-template-columns: repeat(2, 1fr);
+    bottom: 80px; /* avoid menu button overlap */
+  }
+}
+
+@media (max-width: 400px) {
+  .bottom-instructions {
+    grid-template-columns: 1fr;
+  }
+}
