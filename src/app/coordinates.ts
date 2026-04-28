@@ -22,6 +22,13 @@ export const countryCoordinates: CountryCoordinate[] = [
     "longitude": 53.847818,
     "name": "United Arab Emirates"
   },
+   {
+    "alpha2": "AE",
+    "alpha3": "ARE",
+    "latitude": 23.424076,
+    "longitude": 53.847818,
+    "name": "UAE"
+  },
   {
     "alpha2": "AF",
     "alpha3": "AFG",
@@ -287,6 +294,13 @@ export const countryCoordinates: CountryCoordinate[] = [
     "latitude": -0.228021,
     "longitude": 15.827659,
     "name": "Congo [Republic]"
+  },
+  {
+    "alpha2": "CG",
+    "alpha3": "COG",
+    "latitude": -0.228021,
+    "longitude": 15.827659,
+    "name": " Congo - Kinshasa"
   },
   {
     "alpha2": "CH",
@@ -1267,6 +1281,13 @@ export const countryCoordinates: CountryCoordinate[] = [
     "latitude": 31.952162,
     "longitude": 35.233154,
     "name": "Palestinian Territories"
+  },
+  {
+    "alpha2": "PS",
+    "alpha3": "PSE",
+    "latitude": 31.952162,
+    "longitude": 35.233154,
+    "name": "Palestine"
   },
   {
     "alpha2": "PT",

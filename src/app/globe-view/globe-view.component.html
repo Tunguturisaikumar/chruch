@@ -21,7 +21,10 @@
 <div id="globe-map"></div>
 <!-- Menu Icon -->
 <div class="menu-button" (click)="toggleMenu($event)">
-  <i class="fas fa-bars"></i>
+  <i class="fas" 
+   [ngClass]="isMenuOpen ? 'fa-times' : 'fa-bars'"
+   [style.fontSize]="isMenuOpen ? '24px' : '22px'">
+</i>
 </div>
   <div class="bottom-instructions">
   <div class="instruction-box">

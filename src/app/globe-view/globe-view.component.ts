@@ -124,18 +124,17 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private lastCountry: string | null = null;
   private isMainPopupActive = false;
 
-  // user controlled slideshow delay (seconds)
-  slideshowDelaySeconds: number = 17;   // active value used by slideshow (default 17s)
-  tempSlideshowInput: number = 17;      // bound to input so user can change without immediate effect
+  slideshowDelaySeconds: number = 17;  
+  tempSlideshowInput: number = 17;     
 
-  // internals to allow immediate update while waiting
-  private currentDelayTimer: any = null;                 // holds setTimeout id for current wait
-  private currentDelayResolve: (() => void) | null = null; // resolve fn for the in-flight wait Promise
+  private currentDelayTimer: any = null;                
+  private currentDelayResolve: (() => void) | null = null;
 
-  private readonly IMAGE_POOL_SIZE = 10;      // default images per country
-  private readonly BRAZIL_POOL_SIZE = 14;     // Brazil images
-  private readonly IMAGE_COOLDOWN = 5;        // ❗ cannot repeat within last 5 picks
+  private readonly IMAGE_POOL_SIZE = 10;      
+  private readonly BRAZIL_POOL_SIZE = 14;    
+  private readonly IMAGE_COOLDOWN = 5;       
 
+  private createdPopupKeys = new Set<string>();
 
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
@@ -148,7 +147,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       this.map.easeTo({
         zoom: currentZoom + 1,
         duration: 1000,
-        easing: t => t * (2 - t) // smooth ease-out animation
+        easing: t => t * (2 - t) 
       });
     }
   }
@@ -183,18 +182,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   applySlideshowDelay(): void {
-    // sanitize & clamp value between 1 and 60
     const v = Number(this.tempSlideshowInput) || 17;
     const clamped = Math.max(1, Math.min(60, Math.floor(v)));
     this.slideshowDelaySeconds = clamped;
-    this.tempSlideshowInput = clamped; // reflect clamped value in the input
+    this.tempSlideshowInput = clamped; 
 
-    // If the slideshow is currently waiting, restart that wait using the new value.
-    // We clear the existing timer and start a fresh one that will call the stored resolve
-    // after the new full delay. This makes the new value take effect immediately.
     if (this.currentDelayTimer && this.currentDelayResolve) {
       clearTimeout(this.currentDelayTimer);
-      // start a new timer that will call the existing resolve after the updated delay
+    
       this.currentDelayTimer = setTimeout(() => {
         const resolve = this.currentDelayResolve;
         this.currentDelayTimer = null;
@@ -206,7 +201,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
 
   private loadChurchData(): void {
-    const apiUrl = 'https://finaloneapi-486354915183.europe-north1.run.app/';
+    const apiUrl = environment.finalapi;
     this.http.get<ChurchData[]>(apiUrl).subscribe({
       next: (data: ChurchData[]) => {
         if (data && data.length > 0) {
@@ -318,7 +313,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  // 1) Initial rotation: full-rotation(s) over durationMs (default 10s)
   private startInitialRotation(rotations: number = 1, durationMs: number = 10000): Promise<void> {
     return new Promise(resolve => {
       const start = performance.now();
@@ -328,15 +322,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       const rotateFrame = (time: number) => {
         const elapsed = time - start;
-        const t = Math.min(elapsed / durationMs, 1); // 0..1 progress
+        const t = Math.min(elapsed / durationMs, 1); 
 
-        // compute how many degrees should be completed so far
         const degreesDone = totalDegrees * t;
-        // set bearing decreasing (matches this.bearing -= 0.5 direction)
         this.bearing = startBearing - degreesDone;
 
-        // immediate update so repeated frames are visible
-        // use jumpTo for instant frame updates (avoid overlapping eases)
         this.map.jumpTo({ bearing: this.bearing });
 
         if (t < 1) {
@@ -361,26 +351,15 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     transitionDurationMs: number = 2000
   ): Promise<void> {
     return new Promise(resolve => {
-      // Remove small popups
-      if (this.previousCountryPopups && this.previousCountryPopups.length > 0) {
-        this.previousCountryPopups.forEach(p => { try { p.remove(); } catch { } });
-        this.previousCountryPopups = [];
-      }
-
-      // Ensure main-popup flag off and hide markers
+    
       this.isMainPopupActive = false;
       const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
       if (hadMarkers) this.hideChurches();
 
-      // Stop ongoing camera animations
       try { (this.map as any).stop && (this.map as any).stop(); } catch (e) { }
 
       this.ngZone.runOutsideAngular(() => {
         const startTime = performance.now();
-
-        // Phase 1: Zoom out (0 to 0.33 of duration)
-        // Phase 2: Pan to new location (0.33 to 0.66 of duration)
-        // Phase 3: Zoom in to destination (0.66 to 1.0 of duration)
 
         const transitionFrame = (time: number) => {
           const elapsed = time - startTime;
@@ -391,26 +370,22 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           let currentZoom: number;
 
           if (progress < 0.33) {
-            // Phase 1: Zoom out from current location
-            const phaseProgress = progress / 0.33; // 0 to 1 within this phase
+            const phaseProgress = progress / 0.33; 
             currentLng = fromLngLat[0];
             currentLat = fromLngLat[1];
-            currentZoom = 5 - (5 - 1.5) * phaseProgress; // Zoom from 5 to 1.5
+            currentZoom = 5 - (5 - 1.5) * phaseProgress; 
           } else if (progress < 0.66) {
-            // Phase 2: Pan to new location while at global zoom level
-            const phaseProgress = (progress - 0.33) / 0.33; // 0 to 1 within this phase
+            const phaseProgress = (progress - 0.33) / 0.33; 
             currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
             currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
-            currentZoom = 1.5; // Stay at global view
+            currentZoom = 1.5; 
           } else {
-            // Phase 3: Zoom in to new location
-            const phaseProgress = (progress - 0.66) / 0.34; // 0 to 1 within this phase
+            const phaseProgress = (progress - 0.66) / 0.34;
             currentLng = toLngLat[0];
             currentLat = toLngLat[1];
-            currentZoom = 1.5 + (5 - 1.5) * phaseProgress; // Zoom from 1.5 to 5
+            currentZoom = 1.5 + (5 - 1.5) * phaseProgress;
           }
 
-          // Use jumpTo for instant frame updates
           this.map.jumpTo({
             center: [currentLng, currentLat],
             zoom: currentZoom,
@@ -423,7 +398,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           } else {
             if (this.animationId) cancelAnimationFrame(this.animationId);
 
-            // Restore markers if they were present and zoom is high enough
             const finalZoom = this.map.getZoom();
             if (hadMarkers && finalZoom >= 5) {
               this.showChurches();
@@ -456,20 +430,18 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       const church = this.churches[index];
       const currentCountry = church.country;
 
-      // Remove old country popups if country changes
-      if (this.lastCountry && this.lastCountry !== currentCountry) {
-        this.previousCountryPopups.forEach(p => p.remove());
-        this.previousCountryPopups = [];
-      }
+      // // Remove old country popups if country changes
+      // if (this.lastCountry && this.lastCountry !== currentCountry) {
+      //   // this.previousCountryPopups.forEach(p => p.remove());
+      //   // this.previousCountryPopups = [];
+      // }
       this.lastCountry = currentCountry;
 
-      // Remove previous main popup before creating a new one
       if (currentMainPopup) {
         currentMainPopup.remove();
         currentMainPopup = null;
       }
 
-      // Fly to location
       this.map.flyTo({
         center: [church.longitude, church.latitude],
         zoom: 5,
@@ -478,10 +450,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         essential: true
       });
 
-      // Add small popups for previously shown churches (same country)
-      const sameCountryChurches = shownChurches.filter(c => c.country === currentCountry);
-      const recentChurches = sameCountryChurches.slice(-25);
+      // const sameCountryChurches = shownChurches.filter(c => c.country === currentCountry);
+      const recentChurches = shownChurches.slice(-25);
       recentChurches.forEach(prev => {
+        const key = `${prev.latitude}_${prev.longitude}_${prev.country}`;
+        if (this.createdPopupKeys.has(key)) return;
         const smallPopup = new mapboxgl.Popup({
           offset: 10,
           closeButton: false,
@@ -492,9 +465,9 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           .addTo(this.map);
 
         this.previousCountryPopups.push(smallPopup);
+        this.createdPopupKeys.add(key);
       });
 
-      // Create new main popup
       currentMainPopup = new mapboxgl.Popup({
         offset: 25,
         closeOnClick: false,
@@ -507,10 +480,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       this.isMainPopupActive = true;
       shownChurches.push(church);
 
-      // Wait for slideshowDelaySeconds while the card is visible.
-      // Uses a cancellable promise so applySlideshowDelay() can restart the wait with the new value.
       await new Promise<void>((res) => {
-        // clear previous if any (shouldn't be any here normally)
         if (this.currentDelayTimer) {
           clearTimeout(this.currentDelayTimer);
           this.currentDelayTimer = null;
@@ -526,36 +496,30 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       });
 
 
-      // Remove main popup
       if (currentMainPopup) {
         currentMainPopup.remove();
         currentMainPopup = null;
         this.isMainPopupActive = false;
       }
 
-      // Move to next church before transition
       index = (index + 1) % this.churches.length;
       const nextChurch = this.churches[index];
 
-      // Transition: zoom out from current location, pan to next, zoom in
       await this.transitionBetweenCards(
         [church.longitude, church.latitude],
         [nextChurch.longitude, nextChurch.latitude],
-        3000 // 2 second transition
+        3000
       );
 
       this.isFlying = false;
 
-      // show next
       showNextChurch();
     };
 
-    // Kick off the slideshow
     showNextChurch();
   }
 
 
-  // Tracks recently used image numbers per country+gender
   private recentImageHistory: {
     [cacheKey: string]: number[];
   } = {};
@@ -570,7 +534,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     const history = this.recentImageHistory[cacheKey];
 
-    // Build allowed indices (exclude recent history)
     const allowed: number[] = [];
     for (let i = 1; i <= totalImages; i++) {
       if (!history.includes(i)) {
@@ -578,7 +541,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       }
     }
 
-    // If everything is blocked, reset history
     if (allowed.length === 0) {
       history.length = 0;
       for (let i = 1; i <= totalImages; i++) {
@@ -586,13 +548,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Pick random from allowed
     const index = allowed[Math.floor(Math.random() * allowed.length)];
 
-    // Update history
     history.push(index);
     if (history.length > this.IMAGE_COOLDOWN) {
-      history.shift(); // remove oldest
+      history.shift();
     }
 
     return index;
@@ -656,11 +616,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         ? this.BRAZIL_POOL_SIZE
         : this.IMAGE_POOL_SIZE;
 
-      // const randomIndex = this.getNonRepeatingRandomIndex(
-      //   cacheKey,
-      //   totalImages
-      // );
-
 
       const rawUrl = `${bucketBaseUrl}/${countryFolder}/${genderFolder}/${fileCountry}_${fileGender}_${church.imageIndex}.png`;
 
@@ -674,11 +629,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private normalizeCountryForFolder(country: string): string {
     return country
       .trim()
-      .split(/\s+/)                 // split by spaces
+      .split(/\s+/)               
       .map(
         word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       )
-      .join('');                    // remove spaces
+      .join('');                   
   }
 
   private resolveImage(
@@ -735,19 +690,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private buildPopupCard(church: ChurchData): string {
     const personImg = this.getImageForChurch(church);
 
-    const languageRow =
-      church.language &&
-        church.language !== null &&
-        church.language !== undefined &&
-        church.language.toString().trim().toLowerCase() !== 'null' &&
-        church.language.toString().trim() !== ''
-        ? `
-        <tr>
-          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Language:</td>
-          <td padding:2px 0;" style="font-weight:bold;font-size:14px;">${church.language}</td>
-        </tr>`
-        : '';
-
     let displayActivity = church.activity;
 
     if (church.activity == 'Bible Study') {
@@ -758,26 +700,69 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       displayActivity = 'Website Visitor';
     }
 
-    return `
-    <div style="width:220px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-      <img 
-        src="${personImg}" 
-        alt="${church.gender}" 
-        style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;"
-      />
-      <table style="width:100%;border-collapse:collapse;">
-        <tr>
-          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:16px;">Country:</td>
-          <td padding:2px 0;" style="font-weight:bold;font-size:16px;">${church.country}</td>
-        </tr>
-        ${languageRow}
-        <tr>
-          <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Activity:</td>
-          <td padding:2px 0;" style="font-weight:bold;font-size:14px;">${displayActivity}</td>
-        </tr>
-      </table>
+   return `
+<div style="
+  width:160px;
+  padding:10px;
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  font-family:sans-serif;
+">
+
+  <!-- IMAGE -->
+
+  <div style="
+  width:100%;
+  height:100px;
+  // border-radius:10px;
+  overflow:hidden;
+  margin-bottom:8px;
+">
+  <img 
+    src="${personImg}" 
+    alt="${church.gender}" 
+    style="
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    "
+  />
+</div>
+
+  <!-- CONTENT -->
+  <div style="display:flex; flex-direction:column; gap:1px;">
+
+    <div style="display:flex;">
+      <span style="width:50px; font-weight:600; color:#000;">Country</span>
+      <span style="width:10px; font-weight:600; text-align:center;">:</span>
+      <span style="font-weight:700;">${church.country}</span>
     </div>
-  `;
+
+    ${
+      church.language &&
+      church.language.toString().trim() !== '' &&
+      church.language.toString().toLowerCase() !== 'null'
+        ? `
+        <div style="display:flex;">
+          <span style="width:50px; font-weight:600; color:#000;">Language</span>
+          <span style="width:10px;font-weight:600; text-align:center;">:</span>
+          <span style="font-weight:700;">${church.language}</span>
+        </div>`
+        : ''
+    }
+
+    <div style="display:flex;">
+      <span style="width:50px; font-weight:600; color:#000;">Activity</span>
+      <span style="width:10px;font-weight:600; text-align:center;">:</span>
+      <span style="font-weight:700; word-break:break-word;">${displayActivity}</span>
+    </div>
+
+  </div>
+</div>
+`;
   }
 
 
@@ -785,20 +770,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
   private buildSmallPopup(church: ChurchData): string {
     const personImg = this.getImageForChurch(church);
-    const languageRow =
-      church.language &&
-        church.language !== null &&
-        church.language !== undefined &&
-        church.language.toString().trim().toLowerCase() !== 'null' &&
-        church.language.toString().trim() !== ''
-        ? `
-        <tr>
-          <td style="font-weight:bold;font-size:4px;">Language:</td>
-          <td style="font-weight:bold;font-size:4px;">${church.language}</td>
-        </tr>`
-        : '';
 
-    // Clean up only specific type values
     let displayActivity = church.activity;
 
     if (church.activity == 'Bible Study') {
@@ -808,30 +780,39 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     } else if (church.activity == 'Bible Word') {
       displayActivity = 'Website Visitor';
     }
-    //  let personImg: string;
-
-    //     if (!church.gender || church.gender.trim() === '') {
-    //       personImg = 'assets/realperson.jpg';
-    //     } else if (church.gender.toLowerCase() === 'male') {
-    //       personImg = 'assets/realperson.jpg';
-    //     } else if (church.gender.toLowerCase() === 'female') {
-    //       personImg = 'assets/realwomen.jpg';
-    //     } else {
-    //       personImg = 'assets/Personicon.jpg';
-    //     }
+   
     return `
-    <div style="width:60px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:40px; object-fit:cover; border-radius:4px; margin-bottom:4px;"/>
-      <div style="display:flex; flex-direction:column;">
-      <div style="font-weight:bold; font-size:6px;">
-        <p style="margin:0px">Country: ${church.country}</p>
-      </div>
-      <div style="font-weight:bold; font-size:4px;">
-        <p style="margin:0px">Activity: ${displayActivity}</p>
-      </div>
-      </div>
-    </div>
-    `;
+<div style="
+  width:65px;
+  padding:4px;
+  border-radius:8px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.2);
+  background:#fff;
+  font-family:sans-serif;
+">
+  <img 
+    src="${personImg}" 
+    alt="${church.gender}" 
+    style="
+      width:100%;
+      height:38px;
+      object-fit:cover;
+      border-radius:6px;
+      margin-bottom:3px;
+    "
+  />
+
+  <div style="
+    font-size:6px;
+    font-weight:600;
+    text-align:center;
+    line-height:1.1;
+  ">
+    <div> ${church.country}</div>
+    <div> ${displayActivity}</div>
+  </div>
+</div>
+`;
   }
 
 
