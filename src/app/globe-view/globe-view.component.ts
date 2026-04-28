@@ -737,10 +737,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     const languageRow =
       church.language &&
-      church.language !== null &&
-      church.language !== undefined &&
-      church.language.toString().trim().toLowerCase() !== 'null' &&
-      church.language.toString().trim() !== ''
+        church.language !== null &&
+        church.language !== undefined &&
+        church.language.toString().trim().toLowerCase() !== 'null' &&
+        church.language.toString().trim() !== ''
         ? `
         <tr>
           <td style="font-weight:bold; padding:2px 4px 2px 0;font-size:14px;">Language:</td>
@@ -750,8 +750,8 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     let displayActivity = church.activity;
 
-     if (church.activity == 'Bible Study') {
-      displayActivity = 'Bible Study Lesson Finished';
+    if (church.activity == 'Bible Study') {
+      displayActivity = 'Bible Study Lesson Completed';
     } else if (church.activity == 'Youversion') {
       displayActivity = 'Bible Reading Plan';
     } else if (church.activity == 'Bible Word') {
@@ -787,21 +787,21 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const personImg = this.getImageForChurch(church);
     const languageRow =
       church.language &&
-      church.language !== null &&
-      church.language !== undefined &&
-      church.language.toString().trim().toLowerCase() !== 'null' &&
-      church.language.toString().trim() !== ''
+        church.language !== null &&
+        church.language !== undefined &&
+        church.language.toString().trim().toLowerCase() !== 'null' &&
+        church.language.toString().trim() !== ''
         ? `
         <tr>
-          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:6px;">Language:</td>
-          <td padding:1px 0;" style="font-weight:bold;font-size:6px;">${church.language}</td>
+          <td style="font-weight:bold;font-size:4px;">Language:</td>
+          <td style="font-weight:bold;font-size:4px;">${church.language}</td>
         </tr>`
         : '';
 
     // Clean up only specific type values
     let displayActivity = church.activity;
 
-     if (church.activity == 'Bible Study') {
+    if (church.activity == 'Bible Study') {
       displayActivity = 'Bible Study Lesson Finished';
     } else if (church.activity == 'Youversion') {
       displayActivity = 'Bible Reading Plan';
@@ -820,21 +820,18 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     //       personImg = 'assets/Personicon.jpg';
     //     }
     return `
-    <div style="width:120px; padding:10px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
-      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:80px; object-fit:cover; border-radius:4px; margin-bottom:4px;"/>
-        <table style="width:100%; border-collapse:collapse;">
-        <tr>
-          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:8px;"">Country:</td>
-          <td padding:1px 0;" style="font-weight:bold;font-size:8px;">${church.country}</td>
-        </tr>
-        ${languageRow}
-        <tr>
-          <td style="font-weight:bold; padding:1px 2px 1px 0;font-size:6px;">Activity:</td>
-          <td padding:1px 0;" style="font-weight:bold;font-size:6px;">${displayActivity}</td>
-        </tr>
-      </table>
+    <div style="width:60px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.2); background:#fff;">
+      <img src="${personImg}" alt="${church.gender}" style="width:100%; height:40px; object-fit:cover; border-radius:4px; margin-bottom:4px;"/>
+      <div style="display:flex; flex-direction:column;">
+      <div style="font-weight:bold; font-size:6px;">
+        <p style="margin:0px">Country: ${church.country}</p>
+      </div>
+      <div style="font-weight:bold; font-size:4px;">
+        <p style="margin:0px">Activity: ${displayActivity}</p>
+      </div>
+      </div>
     </div>
-  `;
+    `;
   }
 
 
