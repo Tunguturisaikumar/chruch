@@ -21,30 +21,32 @@
 <div id="globe-map"></div>
 <!-- Menu Icon -->
 <div class="menu-button" (click)="toggleMenu($event)">
-  <i class="fas" 
-   [ngClass]="isMenuOpen ? 'fa-times' : 'fa-bars'"
-   [style.fontSize]="isMenuOpen ? '24px' : '22px'">
-</i>
+  <i class="fas" [ngClass]="isMenuOpen ? 'fa-times' : 'fa-bars'" [style.fontSize]="isMenuOpen ? '24px' : '22px'">
+  </i>
 </div>
-  <div class="bottom-instructions">
+<div class="bottom-instructions">
   <div class="instruction-box">
     <!-- <h4>Website Visitor</h4> -->
-    <p><span style=" color: #0f6f73;font-weight: 600;">Website Visitor:</span>Activity accurate | Language Accurate | Country Accurate | Gender representative | Near real-time</p>
+    <p><span style=" color: #0f6f73;font-weight: 600;">Website Visitor:</span>Activity accurate | Language Accurate |
+      Country Accurate | Gender representative | Near real-time</p>
   </div>
 
   <div class="instruction-box">
     <!-- <h4>Chat</h4> -->
-    <p><span style=" color: #0f6f73;font-weight: 600;">Chat:</span>Activity accurate | Location mostly accurate | Language and Gender representative | Updated weekly</p>
+    <p><span style=" color: #0f6f73;font-weight: 600;">Chat:</span>Activity accurate | Location mostly accurate |
+      Language and Gender representative | Updated weekly</p>
   </div>
 
   <div class="instruction-box">
     <!-- <h4>Bible Reading Plan</h4> -->
-    <p><span style=" color: #0f6f73;font-weight: 600;">Bible Reading Plan:</span>Activity accurate | Language Accurate | Gender and Location representative | Updated monthly</p>
+    <p><span style=" color: #0f6f73;font-weight: 600;">Bible Reading Plan:</span>Activity accurate | Language Accurate |
+      Gender and Location representative | Updated monthly</p>
   </div>
 
   <div class="instruction-box">
     <!-- <h4>Bible Study Lesson Completed</h4> -->
-    <p><span style=" color: #0f6f73;font-weight: 600;">Bible Study Lesson Completed:</span>Activity accurate | Language Accurate | Country Accurate | Gender representative | Near real-time</p>
+    <p><span style=" color: #0f6f73;font-weight: 600;">Bible Study Lesson:</span>Activity accurate | Language Accurate |
+      Country Accurate | Gender representative | Near real-time</p>
   </div>
 </div>
 <!-- Popup -->
@@ -67,10 +69,25 @@
         Apply
       </button>
       <div style="font-size:12px; margin-top:6px; color:#444;">
-        Current: {{ slideshowDelaySeconds }}s &nbsp; (max 60s)
+        Current: {{ slideshowDelaySeconds }}s &nbsp; (min 1s) &nbsp; (max 60s)
       </div>
     </div>
+    <div class="slideshow-controls" style="margin-top:10px;">
+      <label for="showpastrecords" style="font-weight:600; margin-right:6px;">
+        Show Past Records
+      </label>
 
+      <input id="showpastrecords" type="number" min="5" max="100" [(ngModel)]="tempMaxSmallPopups"
+        style="width:68px; display:inline-block; margin-right:8px;" />
+
+      <button type="button" class="btn btn-outline-success" (click)="applyMaxSmallPopups()">
+        Apply
+      </button>
+
+      <div style="font-size:12px; margin-top:6px; color:#444;">
+        Current: {{ maxSmallPopups }} &nbsp; (min 5) &nbsp; (max 100)
+      </div>
+    </div>
     <div class="logo-box">
       <img src="assets/logo.jpg" alt="Logo" />
     </div>

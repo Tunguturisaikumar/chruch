@@ -124,17 +124,25 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private lastCountry: string | null = null;
   private isMainPopupActive = false;
 
-  slideshowDelaySeconds: number = 17;  
-  tempSlideshowInput: number = 17;     
+  slideshowDelaySeconds: number = 17;
+  tempSlideshowInput: number = 17;
 
-  private currentDelayTimer: any = null;                
+  private currentDelayTimer: any = null;
   private currentDelayResolve: (() => void) | null = null;
 
-  private readonly IMAGE_POOL_SIZE = 10;      
-  private readonly BRAZIL_POOL_SIZE = 14;    
-  private readonly IMAGE_COOLDOWN = 5;       
+  private readonly IMAGE_POOL_SIZE = 10;
+  private readonly BRAZIL_POOL_SIZE = 14;
+  private readonly IMAGE_COOLDOWN = 5;
 
   private createdPopupKeys = new Set<string>();
+  maxSmallPopups: number = 20;        // active value
+  tempMaxSmallPopups: number = 20;    // input value
+
+  private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
+
+  private argentinaFallbackHistory: {
+    [gender: string]: number[];
+  } = {};
 
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
@@ -147,7 +155,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       this.map.easeTo({
         zoom: currentZoom + 1,
         duration: 1000,
-        easing: t => t * (2 - t) 
+        easing: t => t * (2 - t)
       });
     }
   }
@@ -185,11 +193,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const v = Number(this.tempSlideshowInput) || 17;
     const clamped = Math.max(1, Math.min(60, Math.floor(v)));
     this.slideshowDelaySeconds = clamped;
-    this.tempSlideshowInput = clamped; 
+    this.tempSlideshowInput = clamped;
 
     if (this.currentDelayTimer && this.currentDelayResolve) {
       clearTimeout(this.currentDelayTimer);
-    
+
       this.currentDelayTimer = setTimeout(() => {
         const resolve = this.currentDelayResolve;
         this.currentDelayTimer = null;
@@ -261,7 +269,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       }
     });
 
-    console.log(updated);
+    // console.log(updated);
 
     return updated;
   }
@@ -322,7 +330,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       const rotateFrame = (time: number) => {
         const elapsed = time - start;
-        const t = Math.min(elapsed / durationMs, 1); 
+        const t = Math.min(elapsed / durationMs, 1);
 
         const degreesDone = totalDegrees * t;
         this.bearing = startBearing - degreesDone;
@@ -351,7 +359,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     transitionDurationMs: number = 2000
   ): Promise<void> {
     return new Promise(resolve => {
-    
+
       this.isMainPopupActive = false;
       const hadMarkers = this.churchMarkers && this.churchMarkers.length > 0;
       if (hadMarkers) this.hideChurches();
@@ -370,15 +378,15 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           let currentZoom: number;
 
           if (progress < 0.33) {
-            const phaseProgress = progress / 0.33; 
+            const phaseProgress = progress / 0.33;
             currentLng = fromLngLat[0];
             currentLat = fromLngLat[1];
-            currentZoom = 5 - (5 - 1.5) * phaseProgress; 
+            currentZoom = 5 - (5 - 1.5) * phaseProgress;
           } else if (progress < 0.66) {
-            const phaseProgress = (progress - 0.33) / 0.33; 
+            const phaseProgress = (progress - 0.33) / 0.33;
             currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
             currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
-            currentZoom = 1.5; 
+            currentZoom = 1.5;
           } else {
             const phaseProgress = (progress - 0.66) / 0.34;
             currentLng = toLngLat[0];
@@ -412,7 +420,37 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
+  applyMaxSmallPopups(): void {
+    const v = Number(this.tempMaxSmallPopups) || 20;
 
+    // clamp (optional but recommended)
+    const clamped = Math.max(5, Math.min(100, Math.floor(v)));
+
+    this.maxSmallPopups = clamped;
+    this.tempMaxSmallPopups = clamped;
+
+    // 🔥 IMPORTANT: enforce immediately
+    this.enforcePopupLimit();
+  }
+
+  private enforcePopupLimit(): void {
+    while (this.previousCountryPopups.length > this.maxSmallPopups) {
+      const oldest = this.previousCountryPopups.shift();
+
+      if (oldest) {
+        const el = oldest.getElement();
+
+        if (el) {
+          el.classList.add('small-popup-exit');
+          setTimeout(() => {
+            try { oldest.remove(); } catch { }
+          }, 300);
+        } else {
+          try { oldest.remove(); } catch { }
+        }
+      }
+    }
+  }
 
 
 
@@ -466,6 +504,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
         this.previousCountryPopups.push(smallPopup);
         this.createdPopupKeys.add(key);
+        this.enforcePopupLimit();
       });
 
       currentMainPopup = new mapboxgl.Popup({
@@ -629,11 +668,27 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private normalizeCountryForFolder(country: string): string {
     return country
       .trim()
-      .split(/\s+/)               
+      .split(/\s+/)
       .map(
         word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
       )
-      .join('');                   
+      .join('');
+  }
+
+  private getArgentinaFallbackImage(gender: string): string {
+    const genderFolder = gender === 'female' ? 'female' : 'male';
+    const historyKey = `argentina_${genderFolder}`;
+
+    const index = this.getNonRepeatingRandomIndex(
+      historyKey,
+      this.ARGENTINA_POOL_SIZE
+    );
+
+    const baseUrl = 'https://storage.googleapis.com/my-chruch-images';
+
+    return encodeURI(
+      `${baseUrl}/Argentina/${genderFolder}/Argentina_${genderFolder === 'female' ? 'Female' : 'Male'}_${index}.png`
+    );
   }
 
   private resolveImage(
@@ -648,11 +703,24 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     };
 
     img.onerror = () => {
-      this.imageCache[cacheKey] =
-        gender === 'female'
-          ? 'assets/realwomen.jpg'
-          : 'assets/realperson.jpg';
-    };
+  const fallback = this.getArgentinaFallbackImage(gender);
+
+  const retryImg = new Image();
+
+  retryImg.onload = () => {
+    this.imageCache[cacheKey] = fallback;
+  };
+
+  retryImg.onerror = () => {
+    // FINAL fallback (only if Argentina also fails)
+    this.imageCache[cacheKey] =
+      gender === 'female'
+        ? 'assets/realwomen.jpg'
+        : 'assets/realperson.jpg';
+  };
+
+  retryImg.src = fallback;
+};
 
     img.src = imageUrl;
   }
@@ -700,7 +768,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       displayActivity = 'Website Visitor';
     }
 
-   return `
+    return `
 <div style="
   width:160px;
   padding:10px;
@@ -733,34 +801,36 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 </div>
 
   <!-- CONTENT -->
-  <div style="display:flex; flex-direction:column; gap:1px;">
+  <!-- CONTENT -->
+<div style="
+  display:grid;
+  grid-template-columns: 60px 10px 1fr;
+  row-gap:4px;
+  align-items:start;
+">
 
-    <div style="display:flex;">
-      <span style="width:50px; font-weight:600; color:#000;">Country</span>
-      <span style="width:10px; font-weight:600; text-align:center;">:</span>
-      <span style="font-weight:700;">${church.country}</span>
-    </div>
+  <span style="font-weight:600;">Country</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700;">${church.country}</span>
 
-    ${
-      church.language &&
-      church.language.toString().trim() !== '' &&
-      church.language.toString().toLowerCase() !== 'null'
+  ${church.language &&
+        church.language.toString().trim() !== '' &&
+        church.language.toString().toLowerCase() !== 'null'
         ? `
-        <div style="display:flex;">
-          <span style="width:50px; font-weight:600; color:#000;">Language</span>
-          <span style="width:10px;font-weight:600; text-align:center;">:</span>
-          <span style="font-weight:700;">${church.language}</span>
-        </div>`
+      <span style="font-weight:600;">Language</span>
+      <span style="text-align:center;">:</span>
+      <span style="font-weight:700;">${church.language}</span>
+    `
         : ''
-    }
+      }
 
-    <div style="display:flex;">
-      <span style="width:50px; font-weight:600; color:#000;">Activity</span>
-      <span style="width:10px;font-weight:600; text-align:center;">:</span>
-      <span style="font-weight:700; word-break:break-word;">${displayActivity}</span>
-    </div>
+  <span style="font-weight:600;">Activity</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700; word-break:break-word;">
+    ${displayActivity}
+  </span>
 
-  </div>
+</div>
 </div>
 `;
   }
@@ -780,7 +850,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     } else if (church.activity == 'Bible Word') {
       displayActivity = 'Website Visitor';
     }
-   
+
     return `
 <div style="
   width:65px;

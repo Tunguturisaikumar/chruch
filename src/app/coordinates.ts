@@ -282,6 +282,13 @@ export const countryCoordinates: CountryCoordinate[] = [
     "name": "Congo [DRC]"
   },
   {
+    "alpha2": "CD",
+    "alpha3": "COD",
+    "latitude": -4.038333,
+    "longitude": 21.758664,
+    "name": "Congo-Brazzaville"
+  },
+  {
     "alpha2": "CF",
     "alpha3": "CAF",
     "latitude": 6.611111,
