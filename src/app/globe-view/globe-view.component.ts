@@ -140,9 +140,15 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
   private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
 
+ 
+
   private argentinaFallbackHistory: {
     [gender: string]: number[];
   } = {};
+
+  private getActivityKey(church: ChurchData): string {
+    return `${church.country}_${church.activity}_${church.latitude.toFixed(1)}_${church.longitude.toFixed(1)}`;
+  }
 
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
@@ -424,7 +430,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const v = Number(this.tempMaxSmallPopups) || 20;
 
     // clamp (optional but recommended)
-    const clamped = Math.max(5, Math.min(100, Math.floor(v)));
+    const clamped = Math.max(5, Math.min(500, Math.floor(v)));
 
     this.maxSmallPopups = clamped;
     this.tempMaxSmallPopups = clamped;
@@ -461,11 +467,20 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const shownChurches: ChurchData[] = [];
     let currentMainPopup: mapboxgl.Popup | null = null;
 
+    const activityCountMap: { [key: string]: number } = {};
     const showNextChurch = async () => {
       if (!this.map || this.isFlying) return;
       this.isFlying = true;
 
       const church = this.churches[index];
+      const key = this.getActivityKey(church);
+
+      if (!activityCountMap[key]) {
+        activityCountMap[key] = 0;
+      }
+
+      activityCountMap[key]++;
+      const count = activityCountMap[key];
       const currentCountry = church.country;
 
       // // Remove old country popups if country changes
@@ -512,7 +527,8 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         closeOnClick: false,
         className: 'main-popup'
       })
-        .setHTML(this.buildPopupCard(church))
+        // .setHTML(this.buildPopupCard(church))
+        .setHTML(this.buildPopupCardWithLimit(church, count))
         .setLngLat([church.longitude, church.latitude])
         .addTo(this.map);
 
@@ -703,24 +719,24 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     };
 
     img.onerror = () => {
-  const fallback = this.getArgentinaFallbackImage(gender);
+      const fallback = this.getArgentinaFallbackImage(gender);
 
-  const retryImg = new Image();
+      const retryImg = new Image();
 
-  retryImg.onload = () => {
-    this.imageCache[cacheKey] = fallback;
-  };
+      retryImg.onload = () => {
+        this.imageCache[cacheKey] = fallback;
+      };
 
-  retryImg.onerror = () => {
-    // FINAL fallback (only if Argentina also fails)
-    this.imageCache[cacheKey] =
-      gender === 'female'
-        ? 'assets/realwomen.jpg'
-        : 'assets/realperson.jpg';
-  };
+      retryImg.onerror = () => {
+        // FINAL fallback (only if Argentina also fails)
+        this.imageCache[cacheKey] =
+          gender === 'female'
+            ? 'assets/realwomen.jpg'
+            : 'assets/realperson.jpg';
+      };
 
-  retryImg.src = fallback;
-};
+      retryImg.src = fallback;
+    };
 
     img.src = imageUrl;
   }
@@ -753,6 +769,98 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     );
   }
 
+  private buildPopupCardWithLimit(church: ChurchData, count: number): string {
+  const personImg = this.getImageForChurch(church);
+
+  let displayActivity = church.activity;
+
+  if (church.activity == 'Bible Study') {
+    displayActivity = 'Bible Study Lesson Completed';
+  } else if (church.activity == 'Youversion') {
+    displayActivity = 'Bible Reading Plan';
+  } else if (church.activity == 'Bible Word') {
+    displayActivity = 'Website Visitor';
+  }
+
+  let extraText = '';
+
+  // ✅ ONLY trigger after 10
+  if (count > 1) {
+    extraText = `and ${count - 1} others`;
+  }
+
+  return `
+<div style="
+  width:160px;
+  padding:10px;
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  font-family:sans-serif;
+">
+
+  <!-- IMAGE -->
+
+  <div style="
+  width:100%;
+  height:100px;
+  // border-radius:10px;
+  overflow:hidden;
+  margin-bottom:8px;
+">
+  <img 
+    src="${personImg}" 
+    alt="${church.gender}" 
+    style="
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    "
+  />
+</div>
+
+  <!-- CONTENT -->
+<div style="
+  display:grid;
+  grid-template-columns: 60px 10px 1fr;
+  row-gap:4px;
+  align-items:start;
+">
+
+  <span style="font-weight:600;">Country</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700;">${church.country}</span>
+
+  ${church.language &&
+        church.language.toString().trim() !== '' &&
+        church.language.toString().toLowerCase() !== 'null'
+        ? `
+      <span style="font-weight:600;">Language</span>
+      <span style="text-align:center;">:</span>
+      <span style="font-weight:700;">${church.language}</span>
+    `
+        : ''
+      }
+
+  <span style="font-weight:600;">Activity</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700; word-break:break-word;">
+    ${displayActivity}
+  </span>
+      
+</div>
+ ${
+    extraText
+      ? `<span style="font-weight:600;">
+           ${extraText}
+         </span>`
+      : ''
+  }
+</div>
+`;
+}
 
 
   private buildPopupCard(church: ChurchData): string {
@@ -829,7 +937,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   <span style="font-weight:700; word-break:break-word;">
     ${displayActivity}
   </span>
-
 </div>
 </div>
 `;
