@@ -785,7 +785,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   let extraText = '';
 
   // ✅ ONLY trigger after 10
-  if (count > 1) {
+  if (count > 10) {
     extraText = `and ${count - 1} others`;
   }
 
