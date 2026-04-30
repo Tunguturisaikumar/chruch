@@ -142,7 +142,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
   groupBatchSize: number = 4;       // active value
   tempGroupBatchSize: number = 4;   // input value
-
+private isSlideshowRunning = false;
 
   private argentinaFallbackHistory: {
     [gender: string]: number[];
@@ -191,7 +191,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         this.loadChurchData();
       },
       error: (err) => {
-        console.error('Failed to load cities.json', err);
+        // console.error('Failed to load cities.json', err);
         this.loadChurchData();
       }
     });
@@ -223,50 +223,78 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     this.groupBatchSize = clamped;
     this.tempGroupBatchSize = clamped;
+
+    // console.log('✅ New Batch Size:', this.groupBatchSize);
+
+    this.restartSlideshow();
   }
 
-  private buildDisplayList(): ChurchData[] {
-    const result: ChurchData[] = [];
+private buildDisplayList(): ChurchData[] {
+  const result: ChurchData[] = [...this.churches];
+  const groupedActivities = ['Bible Word', 'Youversion'];
 
-    const groupedActivities = ['Bible Word', 'Youversion'];
+  const activityMap: { [key: string]: number[] } = {};
 
-    const activityBuffers: { [key: string]: ChurchData[] } = {};
+  // ✅ STEP 1: collect indexes of each activity
+  this.churches.forEach((church, index) => {
+    if (groupedActivities.includes(church.activity)) {
+      if (!activityMap[church.activity]) {
+        activityMap[church.activity] = [];
+      }
+      activityMap[church.activity].push(index);
+    }
+  });
 
-    for (const church of this.churches) {
+  // ✅ STEP 2: process each activity
+  Object.keys(activityMap).forEach(activity => {
+    const indexes = activityMap[activity];
 
-      if (groupedActivities.includes(church.activity)) {
+    for (let i = 0; i < indexes.length; i += this.groupBatchSize) {
+      const batchIndexes = indexes.slice(i, i + this.groupBatchSize);
 
-        if (!activityBuffers[church.activity]) {
-          activityBuffers[church.activity] = [];
+      if (batchIndexes.length === this.groupBatchSize) {
+        const firstIndex = batchIndexes[0];
+
+        // ✅ replace first item with grouped
+        result[firstIndex] = {
+          ...this.churches[firstIndex],
+          groupCount: this.groupBatchSize - 1
+        };
+
+        // ❌ remove rest of batch
+        for (let k = 1; k < batchIndexes.length; k++) {
+          result[batchIndexes[k]] = null as any;
         }
-
-        activityBuffers[church.activity].push(church);
-
-        // ✅ when buffer reaches batch size → flush as group
-        if (activityBuffers[church.activity].length === this.groupBatchSize) {
-          const batch = activityBuffers[church.activity];
-
-          result.push({
-            ...batch[0],
-            groupCount: this.groupBatchSize
-          });
-
-          activityBuffers[church.activity] = [];
-        }
-
-      } else {
-        // normal activities → immediate push
-        result.push(church);
       }
     }
+  });
 
-    // ✅ flush remaining (<4) as individuals
-    Object.values(activityBuffers).forEach(buffer => {
-      result.push(...buffer);
-    });
+  // ✅ STEP 3: remove nulls
+  return result.filter(x => x !== null);
+}
 
-    return result;
-  }
+
+private restartSlideshow(): void {
+  // console.log('🔁 Restarting slideshow...');
+
+  // ✅ HARD STOP
+  this.stopSlideshow();
+
+  // ✅ clear popups
+  this.previousCountryPopups.forEach(p => {
+    try { p.remove(); } catch {}
+  });
+  this.previousCountryPopups = [];
+  this.createdPopupKeys.clear();
+
+  // ✅ IMPORTANT: allow restart
+  this.isSlideshowRunning = false;
+
+  setTimeout(() => {
+    this.startChurchSlideshow();
+  }, 200);
+}
+
   private loadChurchData(): void {
     const apiUrl = environment.finalapi;
     this.http.get<ChurchData[]>(apiUrl).subscribe({
@@ -277,13 +305,13 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           this.preloadImages(this.churches);
 
         } else {
-          console.warn('API returned empty data, using fallback.');
+          // console.warn('API returned empty data, using fallback.');
           this.churches = this.churches_new;
         }
         this.initializeMap();
       },
       error: (err) => {
-        console.error('API error:', err, 'Using fallback data.');
+        // console.error('API error:', err, 'Using fallback data.');
         this.churches = this.churches_new;
         this.initializeMap();
       }
@@ -515,15 +543,20 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
 
   private startChurchSlideshow(): void {
+    if (this.isSlideshowRunning) {
+  // console.log('⚠ Force restarting slideshow...');
+  this.stopSlideshow();
+}
+    this.isSlideshowRunning = true;
     let index = 0;
     const shownChurches: ChurchData[] = [];
     let currentMainPopup: mapboxgl.Popup | null = null;
-
-    const displayList = this.buildDisplayList(); // ✅ IMPORTANT
+    
 
     const showNextChurch = async () => {
-      if (!this.map || this.isFlying) return;
-
+      if (!this.map || this.isFlying || !this.isSlideshowRunning) return;
+      const displayList = this.buildDisplayList(); // ✅ IMPORTANT
+     
       const church = displayList[index];
 
       if (!church || church.latitude === 0 || church.longitude === 0) {
@@ -572,7 +605,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       // ✅ GROUP LOGIC (CLEAN)
       let popupHtml: string;
 
-      if (church.groupCount && church.groupCount >= this.groupBatchSize) {
+      if (church.groupCount && church.groupCount > 0) {
         popupHtml = this.buildPopupCardGrouped(
           church,
           church.groupCount
@@ -637,6 +670,20 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     showNextChurch();
   }
+
+  private stopSlideshow(): void {
+  this.isSlideshowRunning = false;
+
+  if (this.currentDelayTimer) {
+    clearTimeout(this.currentDelayTimer);
+    this.currentDelayTimer = null;
+  }
+
+  if (this.currentDelayResolve) {
+    this.currentDelayResolve();
+    this.currentDelayResolve = null;
+  }
+}
 
   private buildPopupCardGrouped(
     church: ChurchData,
