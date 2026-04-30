@@ -696,35 +696,31 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 </div>
 
   <!-- CONTENT -->
-  <!-- CONTENT -->
 <div style="
   display:grid;
-  grid-template-columns: 60px 10px 1fr;
+  grid-template-columns: 70px 1fr;
   row-gap:4px;
   align-items:start;
 ">
 
-  <span style="font-weight:600;">Country</span>
-  <span style="text-align:center;">:</span>
+  <span style="font-weight:600;">Country:</span>
   <span style="font-weight:700;">${church.country}</span>
 
   ${church.language &&
-        church.language.toString().trim() !== '' &&
-        church.language.toString().toLowerCase() !== 'null'
-        ? `
-      <span style="font-weight:600;">Language</span>
-      <span style="text-align:center;">:</span>
-      <span style="font-weight:700;">${church.language}</span>
-    `
-        : ''
-      }
+    church.language.toString().trim() !== '' &&
+    church.language.toString().toLowerCase() !== 'null'
+      ? `
+    <span style="font-weight:600;">Language:</span>
+    <span style="font-weight:700;">${church.language}</span>
+  `
+      : ''
+  }
 
-  <span style="font-weight:600;">Activity</span>
-  <span style="text-align:center;">:</span>
+  <span style="font-weight:600;">Activity:</span>
   <span style="font-weight:700; word-break:break-word;">
     ${displayActivity}
   </span>
-   
+
 </div>
 <span style="margin-top:6px; font-weight:600;">
     and ${count} others
@@ -1066,34 +1062,31 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 </div>
 
   <!-- CONTENT -->
-  <!-- CONTENT -->
-<div style="
+  <div style="
   display:grid;
-  grid-template-columns: 60px 10px 1fr;
+  grid-template-columns: 70px 1fr;
   row-gap:4px;
   align-items:start;
 ">
 
-  <span style="font-weight:600;">Country</span>
-  <span style="text-align:center;">:</span>
+  <span style="font-weight:600;">Country:</span>
   <span style="font-weight:700;">${church.country}</span>
 
   ${church.language &&
-        church.language.toString().trim() !== '' &&
-        church.language.toString().toLowerCase() !== 'null'
-        ? `
-      <span style="font-weight:600;">Language</span>
-      <span style="text-align:center;">:</span>
-      <span style="font-weight:700;">${church.language}</span>
-    `
-        : ''
-      }
+    church.language.toString().trim() !== '' &&
+    church.language.toString().toLowerCase() !== 'null'
+      ? `
+    <span style="font-weight:600;">Language:</span>
+    <span style="font-weight:700;">${church.language}</span>
+  `
+      : ''
+  }
 
-  <span style="font-weight:600;">Activity</span>
-  <span style="text-align:center;">:</span>
+  <span style="font-weight:600;">Activity:</span>
   <span style="font-weight:700; word-break:break-word;">
     ${displayActivity}
   </span>
+
 </div>
 </div>
 `;
