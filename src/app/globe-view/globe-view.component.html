@@ -88,6 +88,22 @@
         Current: {{ maxSmallPopups }} &nbsp; (min 5) &nbsp; (max 500)
       </div>
     </div>
+    <div class="slideshow-controls" style="margin-top:10px;">
+      <label for="groupCount" style="font-weight:600; margin-right:6px;">
+        Group Count
+      </label>
+
+      <input id="groupCount" type="number" min="4" max="10" [(ngModel)]="tempGroupBatchSize"
+        style="width:68px; display:inline-block; margin-right:8px;" />
+
+      <button type="button" class="btn btn-outline-success" (click)="applyGroupBatchSize()">
+        Apply
+      </button>
+
+      <div style="font-size:12px; margin-top:6px; color:#444;">
+        Current: {{ groupBatchSize }} &nbsp; (min 4) &nbsp; (max 10)
+      </div>
+    </div>
     <div class="logo-box">
       <img src="assets/logo.jpg" alt="Logo" />
     </div>

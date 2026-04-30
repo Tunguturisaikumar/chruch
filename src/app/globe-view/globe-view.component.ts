@@ -15,6 +15,7 @@ interface ChurchData {
 
   imageIndex?: number;
   imageKey?: string;
+  groupCount?: number;
 }
 
 interface CityData {
@@ -139,15 +140,16 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   tempMaxSmallPopups: number = 20;    // input value
 
   private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
+  groupBatchSize: number = 4;       // active value
+  tempGroupBatchSize: number = 4;   // input value
 
- 
 
   private argentinaFallbackHistory: {
     [gender: string]: number[];
   } = {};
 
   private getActivityKey(church: ChurchData): string {
-    return `${church.country}_${church.activity}_${church.latitude.toFixed(1)}_${church.longitude.toFixed(1)}`;
+    return `${church.country}_${church.activity}`;
   }
 
   toggleMenu(event: MouseEvent) {
@@ -213,6 +215,72 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  applyGroupBatchSize(): void {
+    const v = Number(this.tempGroupBatchSize) || 4;
+
+    // clamp between 4 and 10
+    const clamped = Math.max(4, Math.min(10, Math.floor(v)));
+
+    this.groupBatchSize = clamped;
+    this.tempGroupBatchSize = clamped;
+  }
+
+  private buildDisplayList(): ChurchData[] {
+    const map = new Map<string, ChurchData[]>();
+
+    for (const church of this.churches) {
+      const isGroupedActivity =
+        church.activity === 'Bible Word' || church.activity === 'Youversion';
+
+      // normalize coords (IMPORTANT for grouping stability)
+      const lat = church.latitude.toFixed(2);
+      const lng = church.longitude.toFixed(2);
+
+      const key = `${lat}_${lng}_${church.activity}`;
+
+      if (!isGroupedActivity) {
+        map.set(Symbol().toString(), [church]);
+        continue;
+      }
+
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+
+      map.get(key)!.push(church);
+    }
+
+    const result: ChurchData[] = [];
+
+    map.forEach(group => {
+      const batchSize = this.groupBatchSize;
+
+      if (group.length >= batchSize) {
+        let i = 0;
+
+        while (i < group.length) {
+          const slice = group.slice(i, i + batchSize);
+
+          if (slice.length === batchSize) {
+            // ✅ proper group of 4
+            result.push({
+              ...slice[0],
+              groupCount: batchSize
+            });
+          } else {
+            // ❌ remaining items (<4) → show individually
+            result.push(...slice);
+          }
+
+          i += batchSize;
+        }
+      } else {
+        result.push(...group);
+      }
+    });
+
+    return result;
+  }
 
   private loadChurchData(): void {
     const apiUrl = environment.finalapi;
@@ -461,53 +529,47 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
 
 
-
   private startChurchSlideshow(): void {
     let index = 0;
     const shownChurches: ChurchData[] = [];
     let currentMainPopup: mapboxgl.Popup | null = null;
 
-    const activityCountMap: { [key: string]: number } = {};
+    const displayList = this.buildDisplayList(); // ✅ IMPORTANT
+
     const showNextChurch = async () => {
       if (!this.map || this.isFlying) return;
-      this.isFlying = true;
 
-      const church = this.churches[index];
-      const key = this.getActivityKey(church);
+      const church = displayList[index];
 
-      if (!activityCountMap[key]) {
-        activityCountMap[key] = 0;
+      if (!church || church.latitude === 0 || church.longitude === 0) {
+        index = (index + 1) % displayList.length;
+        showNextChurch();
+        return;
       }
-
-      activityCountMap[key]++;
-      const count = activityCountMap[key];
-      const currentCountry = church.country;
-
-      // // Remove old country popups if country changes
-      // if (this.lastCountry && this.lastCountry !== currentCountry) {
-      //   // this.previousCountryPopups.forEach(p => p.remove());
-      //   // this.previousCountryPopups = [];
-      // }
-      this.lastCountry = currentCountry;
 
       if (currentMainPopup) {
         currentMainPopup.remove();
         currentMainPopup = null;
       }
 
+      this.isFlying = true;
+
+      // ✅ smooth animation (no jump)
       this.map.flyTo({
         center: [church.longitude, church.latitude],
         zoom: 5,
-        speed: 1.5,
-        curve: 1,
+        speed: 1.2,
+        curve: 1.2,
         essential: true
       });
 
-      // const sameCountryChurches = shownChurches.filter(c => c.country === currentCountry);
+      // small popups
       const recentChurches = shownChurches.slice(-25);
+
       recentChurches.forEach(prev => {
         const key = `${prev.latitude}_${prev.longitude}_${prev.country}`;
         if (this.createdPopupKeys.has(key)) return;
+
         const smallPopup = new mapboxgl.Popup({
           offset: 10,
           closeButton: false,
@@ -522,34 +584,35 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         this.enforcePopupLimit();
       });
 
+      // ✅ GROUP LOGIC (CLEAN)
+      let popupHtml: string;
+
+      if (church.groupCount && church.groupCount >= this.groupBatchSize) {
+        popupHtml = this.buildPopupCardGrouped(
+          church,
+          church.groupCount
+        );
+      } else {
+        popupHtml = this.buildPopupCard(church);
+      }
+
       currentMainPopup = new mapboxgl.Popup({
         offset: 25,
         closeOnClick: false,
         className: 'main-popup'
       })
-        // .setHTML(this.buildPopupCard(church))
-        .setHTML(this.buildPopupCardWithLimit(church, count))
+        .setHTML(popupHtml)
         .setLngLat([church.longitude, church.latitude])
         .addTo(this.map);
 
       this.isMainPopupActive = true;
       shownChurches.push(church);
 
+      // delay
       await new Promise<void>((res) => {
-        if (this.currentDelayTimer) {
-          clearTimeout(this.currentDelayTimer);
-          this.currentDelayTimer = null;
-          this.currentDelayResolve = null;
-        }
-
         this.currentDelayResolve = res;
-        this.currentDelayTimer = setTimeout(() => {
-          this.currentDelayTimer = null;
-          this.currentDelayResolve = null;
-          res();
-        }, this.slideshowDelaySeconds * 1000);
+        this.currentDelayTimer = setTimeout(res, this.slideshowDelaySeconds * 1000);
       });
-
 
       if (currentMainPopup) {
         currentMainPopup.remove();
@@ -557,15 +620,27 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         this.isMainPopupActive = false;
       }
 
-      index = (index + 1) % this.churches.length;
-      const nextChurch = this.churches[index];
+      // 🔥 find next DIFFERENT location
+      let nextIndex = (index + 1) % displayList.length;
 
+      while (
+        displayList[nextIndex] &&
+        displayList[nextIndex].latitude === church.latitude &&
+        displayList[nextIndex].longitude === church.longitude
+      ) {
+        nextIndex = (nextIndex + 1) % displayList.length;
+      }
+
+      const nextChurch = displayList[nextIndex];
+
+      // ✅ animate only if location is different
       await this.transitionBetweenCards(
         [church.longitude, church.latitude],
         [nextChurch.longitude, nextChurch.latitude],
-        3000
+        2500
       );
 
+      index = nextIndex;
       this.isFlying = false;
 
       showNextChurch();
@@ -574,6 +649,89 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     showNextChurch();
   }
 
+  private buildPopupCardGrouped(
+    church: ChurchData,
+    count: number
+  ): string {
+    const personImg = this.getImageForChurch(church);
+
+    let displayActivity = church.activity;
+
+    if (church.activity == 'Youversion') {
+      displayActivity = 'Bible Reading Plan';
+    } else if (church.activity == 'Bible Word') {
+      displayActivity = 'Website Visitor';
+    }
+
+    return `
+<div style="
+  width:160px;
+  padding:10px;
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 4px 12px rgba(0,0,0,0.2);
+  font-family:sans-serif;
+">
+
+  <!-- IMAGE -->
+
+  <div style="
+  width:100%;
+  height:100px;
+  // border-radius:10px;
+  overflow:hidden;
+  margin-bottom:8px;
+">
+  <img 
+    src="${personImg}" 
+    alt="${church.gender}" 
+    style="
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    "
+  />
+</div>
+
+  <!-- CONTENT -->
+  <!-- CONTENT -->
+<div style="
+  display:grid;
+  grid-template-columns: 60px 10px 1fr;
+  row-gap:4px;
+  align-items:start;
+">
+
+  <span style="font-weight:600;">Country</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700;">${church.country}</span>
+
+  ${church.language &&
+        church.language.toString().trim() !== '' &&
+        church.language.toString().toLowerCase() !== 'null'
+        ? `
+      <span style="font-weight:600;">Language</span>
+      <span style="text-align:center;">:</span>
+      <span style="font-weight:700;">${church.language}</span>
+    `
+        : ''
+      }
+
+  <span style="font-weight:600;">Activity</span>
+  <span style="text-align:center;">:</span>
+  <span style="font-weight:700; word-break:break-word;">
+    ${displayActivity}
+  </span>
+   
+</div>
+<span style="margin-top:6px; font-weight:600;">
+    and ${count} others
+  </span>
+</div>
+`;
+  }
 
   private recentImageHistory: {
     [cacheKey: string]: number[];
@@ -770,26 +928,26 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private buildPopupCardWithLimit(church: ChurchData, count: number): string {
-  const personImg = this.getImageForChurch(church);
+    const personImg = this.getImageForChurch(church);
 
-  let displayActivity = church.activity;
+    let displayActivity = church.activity;
 
-  if (church.activity == 'Bible Study') {
-    displayActivity = 'Bible Study Lesson Completed';
-  } else if (church.activity == 'Youversion') {
-    displayActivity = 'Bible Reading Plan';
-  } else if (church.activity == 'Bible Word') {
-    displayActivity = 'Website Visitor';
-  }
+    if (church.activity == 'Bible Study') {
+      displayActivity = 'Bible Study Lesson Completed';
+    } else if (church.activity == 'Youversion') {
+      displayActivity = 'Bible Reading Plan';
+    } else if (church.activity == 'Bible Word') {
+      displayActivity = 'Website Visitor';
+    }
 
-  let extraText = '';
+    let extraText = '';
 
-  // ✅ ONLY trigger after 10
-  if (count > 10) {
-    extraText = `and ${count - 1} others`;
-  }
+    // ✅ ONLY trigger after 10
+    if (count > 10) {
+      extraText = `and ${count - 1} others`;
+    }
 
-  return `
+    return `
 <div style="
   width:160px;
   padding:10px;
@@ -851,16 +1009,15 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   </span>
       
 </div>
- ${
-    extraText
-      ? `<span style="font-weight:600;">
+ ${extraText
+        ? `<span style="font-weight:600;">
            ${extraText}
          </span>`
-      : ''
-  }
+        : ''
+      }
 </div>
 `;
-}
+  }
 
 
   private buildPopupCard(church: ChurchData): string {
