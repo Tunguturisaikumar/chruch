@@ -226,62 +226,47 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private buildDisplayList(): ChurchData[] {
-    const map = new Map<string, ChurchData[]>();
-
-    for (const church of this.churches) {
-      const isGroupedActivity =
-        church.activity === 'Bible Word' || church.activity === 'Youversion';
-
-      // normalize coords (IMPORTANT for grouping stability)
-      const lat = church.latitude.toFixed(2);
-      const lng = church.longitude.toFixed(2);
-
-      const key = `${lat}_${lng}_${church.activity}`;
-
-      if (!isGroupedActivity) {
-        map.set(Symbol().toString(), [church]);
-        continue;
-      }
-
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-
-      map.get(key)!.push(church);
-    }
-
     const result: ChurchData[] = [];
 
-    map.forEach(group => {
-      const batchSize = this.groupBatchSize;
+    const groupedActivities = ['Bible Word', 'Youversion'];
 
-      if (group.length >= batchSize) {
-        let i = 0;
+    const activityBuffers: { [key: string]: ChurchData[] } = {};
 
-        while (i < group.length) {
-          const slice = group.slice(i, i + batchSize);
+    for (const church of this.churches) {
 
-          if (slice.length === batchSize) {
-            // ✅ proper group of 4
-            result.push({
-              ...slice[0],
-              groupCount: batchSize
-            });
-          } else {
-            // ❌ remaining items (<4) → show individually
-            result.push(...slice);
-          }
+      if (groupedActivities.includes(church.activity)) {
 
-          i += batchSize;
+        if (!activityBuffers[church.activity]) {
+          activityBuffers[church.activity] = [];
         }
+
+        activityBuffers[church.activity].push(church);
+
+        // ✅ when buffer reaches batch size → flush as group
+        if (activityBuffers[church.activity].length === this.groupBatchSize) {
+          const batch = activityBuffers[church.activity];
+
+          result.push({
+            ...batch[0],
+            groupCount: this.groupBatchSize
+          });
+
+          activityBuffers[church.activity] = [];
+        }
+
       } else {
-        result.push(...group);
+        // normal activities → immediate push
+        result.push(church);
       }
+    }
+
+    // ✅ flush remaining (<4) as individuals
+    Object.values(activityBuffers).forEach(buffer => {
+      result.push(...buffer);
     });
 
     return result;
   }
-
   private loadChurchData(): void {
     const apiUrl = environment.finalapi;
     this.http.get<ChurchData[]>(apiUrl).subscribe({
@@ -623,12 +608,16 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       // 🔥 find next DIFFERENT location
       let nextIndex = (index + 1) % displayList.length;
 
+      let safety = 0;
+
       while (
         displayList[nextIndex] &&
         displayList[nextIndex].latitude === church.latitude &&
-        displayList[nextIndex].longitude === church.longitude
+        displayList[nextIndex].longitude === church.longitude &&
+        safety < displayList.length
       ) {
         nextIndex = (nextIndex + 1) % displayList.length;
+        safety++;
       }
 
       const nextChurch = displayList[nextIndex];
@@ -707,14 +696,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   <span style="font-weight:700;">${church.country}</span>
 
   ${church.language &&
-    church.language.toString().trim() !== '' &&
-    church.language.toString().toLowerCase() !== 'null'
-      ? `
+        church.language.toString().trim() !== '' &&
+        church.language.toString().toLowerCase() !== 'null'
+        ? `
     <span style="font-weight:600;">Language:</span>
     <span style="font-weight:700;">${church.language}</span>
   `
-      : ''
-  }
+        : ''
+      }
 
   <span style="font-weight:600;">Activity:</span>
   <span style="font-weight:700; word-break:break-word;">
@@ -1073,14 +1062,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   <span style="font-weight:700;">${church.country}</span>
 
   ${church.language &&
-    church.language.toString().trim() !== '' &&
-    church.language.toString().toLowerCase() !== 'null'
-      ? `
+        church.language.toString().trim() !== '' &&
+        church.language.toString().toLowerCase() !== 'null'
+        ? `
     <span style="font-weight:600;">Language:</span>
     <span style="font-weight:700;">${church.language}</span>
   `
-      : ''
-  }
+        : ''
+      }
 
   <span style="font-weight:600;">Activity:</span>
   <span style="font-weight:700; word-break:break-word;">
