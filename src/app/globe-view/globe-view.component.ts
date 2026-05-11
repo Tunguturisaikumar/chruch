@@ -142,7 +142,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
   groupBatchSize: number = 4;       // active value
   tempGroupBatchSize: number = 4;   // input value
-private isSlideshowRunning = false;
+  private isSlideshowRunning = false;
 
   private argentinaFallbackHistory: {
     [gender: string]: number[];
@@ -219,7 +219,7 @@ private isSlideshowRunning = false;
     const v = Number(this.tempGroupBatchSize) || 4;
 
     // clamp between 4 and 10
-    const clamped = Math.max(4, Math.min(10, Math.floor(v)));
+    const clamped = Math.max(1, Math.min(100, Math.floor(v)));
 
     this.groupBatchSize = clamped;
     this.tempGroupBatchSize = clamped;
@@ -229,71 +229,71 @@ private isSlideshowRunning = false;
     this.restartSlideshow();
   }
 
-private buildDisplayList(): ChurchData[] {
-  const result: ChurchData[] = [...this.churches];
-  const groupedActivities = ['Bible Word', 'Youversion'];
+  private buildDisplayList(): ChurchData[] {
+    const result: ChurchData[] = [...this.churches];
+    const groupedActivities = ['Bible Word', 'Youversion'];
 
-  const activityMap: { [key: string]: number[] } = {};
+    const activityMap: { [key: string]: number[] } = {};
 
-  // ✅ STEP 1: collect indexes of each activity
-  this.churches.forEach((church, index) => {
-    if (groupedActivities.includes(church.activity)) {
-      if (!activityMap[church.activity]) {
-        activityMap[church.activity] = [];
+    // ✅ STEP 1: collect indexes of each activity
+    this.churches.forEach((church, index) => {
+      if (groupedActivities.includes(church.activity)) {
+        if (!activityMap[church.activity]) {
+          activityMap[church.activity] = [];
+        }
+        activityMap[church.activity].push(index);
       }
-      activityMap[church.activity].push(index);
-    }
-  });
+    });
 
-  // ✅ STEP 2: process each activity
-  Object.keys(activityMap).forEach(activity => {
-    const indexes = activityMap[activity];
+    // ✅ STEP 2: process each activity
+    Object.keys(activityMap).forEach(activity => {
+      const indexes = activityMap[activity];
 
-    for (let i = 0; i < indexes.length; i += this.groupBatchSize) {
-      const batchIndexes = indexes.slice(i, i + this.groupBatchSize);
+      for (let i = 0; i < indexes.length; i += this.groupBatchSize) {
+        const batchIndexes = indexes.slice(i, i + this.groupBatchSize);
 
-      if (batchIndexes.length === this.groupBatchSize) {
-        const firstIndex = batchIndexes[0];
+        if (batchIndexes.length === this.groupBatchSize) {
+          const firstIndex = batchIndexes[0];
 
-        // ✅ replace first item with grouped
-        result[firstIndex] = {
-          ...this.churches[firstIndex],
-          groupCount: this.groupBatchSize - 1
-        };
+          // ✅ replace first item with grouped
+          result[firstIndex] = {
+            ...this.churches[firstIndex],
+            groupCount: this.groupBatchSize - 1
+          };
 
-        // ❌ remove rest of batch
-        for (let k = 1; k < batchIndexes.length; k++) {
-          result[batchIndexes[k]] = null as any;
+          // ❌ remove rest of batch
+          for (let k = 1; k < batchIndexes.length; k++) {
+            result[batchIndexes[k]] = null as any;
+          }
         }
       }
-    }
-  });
+    });
 
-  // ✅ STEP 3: remove nulls
-  return result.filter(x => x !== null);
-}
+    // ✅ STEP 3: remove nulls
+    return result.filter(x => x !== null);
+  }
 
 
-private restartSlideshow(): void {
-  // console.log('🔁 Restarting slideshow...');
+  private restartSlideshow(): void {
+    // console.log('🔁 Restarting slideshow...');
 
-  // ✅ HARD STOP
-  this.stopSlideshow();
+    // ✅ HARD STOP
+    this.stopSlideshow();
 
-  // ✅ clear popups
-  this.previousCountryPopups.forEach(p => {
-    try { p.remove(); } catch {}
-  });
-  this.previousCountryPopups = [];
-  this.createdPopupKeys.clear();
+    // ✅ clear popups
+    this.previousCountryPopups.forEach(p => {
+      try { p.remove(); } catch { }
+    });
+    this.previousCountryPopups = [];
+    this.createdPopupKeys.clear();
 
-  // ✅ IMPORTANT: allow restart
-  this.isSlideshowRunning = false;
+    // ✅ IMPORTANT: allow restart
+    this.isSlideshowRunning = false;
 
-  setTimeout(() => {
-    this.startChurchSlideshow();
-  }, 200);
-}
+    setTimeout(() => {
+      this.startChurchSlideshow();
+    }, 200);
+  }
 
   private loadChurchData(): void {
     const apiUrl = environment.finalapi;
@@ -544,19 +544,19 @@ private restartSlideshow(): void {
 
   private startChurchSlideshow(): void {
     if (this.isSlideshowRunning) {
-  // console.log('⚠ Force restarting slideshow...');
-  this.stopSlideshow();
-}
+      // console.log('⚠ Force restarting slideshow...');
+      this.stopSlideshow();
+    }
     this.isSlideshowRunning = true;
     let index = 0;
     const shownChurches: ChurchData[] = [];
     let currentMainPopup: mapboxgl.Popup | null = null;
-    
+
 
     const showNextChurch = async () => {
       if (!this.map || this.isFlying || !this.isSlideshowRunning) return;
       const displayList = this.buildDisplayList(); // ✅ IMPORTANT
-     
+
       const church = displayList[index];
 
       if (!church || church.latitude === 0 || church.longitude === 0) {
@@ -604,13 +604,28 @@ private restartSlideshow(): void {
 
       // ✅ GROUP LOGIC (CLEAN)
       let popupHtml: string;
-
       if (church.groupCount && church.groupCount > 0) {
+
+        console.log('🚀 GROUP DISPLAYED:', {
+          activity: church.activity,
+          country: church.country,
+          selectedBatchSize: this.groupBatchSize,
+          displayedOthersCount: church.groupCount,
+          totalRecordsInGroup: church.groupCount + 1
+        });
+
         popupHtml = this.buildPopupCardGrouped(
           church,
           church.groupCount
         );
+
       } else {
+
+        console.log('👤 SINGLE DISPLAYED:', {
+          activity: church.activity,
+          country: church.country
+        });
+
         popupHtml = this.buildPopupCard(church);
       }
 
@@ -672,18 +687,18 @@ private restartSlideshow(): void {
   }
 
   private stopSlideshow(): void {
-  this.isSlideshowRunning = false;
+    this.isSlideshowRunning = false;
 
-  if (this.currentDelayTimer) {
-    clearTimeout(this.currentDelayTimer);
-    this.currentDelayTimer = null;
-  }
+    if (this.currentDelayTimer) {
+      clearTimeout(this.currentDelayTimer);
+      this.currentDelayTimer = null;
+    }
 
-  if (this.currentDelayResolve) {
-    this.currentDelayResolve();
-    this.currentDelayResolve = null;
+    if (this.currentDelayResolve) {
+      this.currentDelayResolve();
+      this.currentDelayResolve = null;
+    }
   }
-}
 
   private buildPopupCardGrouped(
     church: ChurchData,
@@ -731,6 +746,14 @@ private restartSlideshow(): void {
   />
 </div>
 
+${count >= 1
+        ? `
+    <span style="margin-top:6px; font-weight:600;">
+      and ${count} ${count === 1 ? 'other' : 'others'}
+    </span>
+  `
+        : ''
+      }
   <!-- CONTENT -->
 <div style="
   display:grid;
@@ -758,9 +781,7 @@ private restartSlideshow(): void {
   </span>
 
 </div>
-<span style="margin-top:6px; font-weight:600;">
-    and ${count} others
-  </span>
+
 </div>
 `;
   }
@@ -1209,9 +1230,17 @@ private restartSlideshow(): void {
       .addTo(this.map);
 
     el.addEventListener('mouseenter', () => {
-      if (!this.isMainPopupActive) {
-        popup.addTo(this.map).setLngLat([church.longitude, church.latitude]);
+
+      // ✅ block hover popup during slideshow rotation
+      if (this.isSlideshowRunning || this.isFlying || this.isMainPopupActive) {
+        return;
       }
+
+      popup.addTo(this.map).setLngLat([
+        church.longitude,
+        church.latitude
+      ]);
+
     });
 
     el.addEventListener('mouseleave', () => {

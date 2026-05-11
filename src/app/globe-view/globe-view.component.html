@@ -93,7 +93,7 @@
         Group Count
       </label>
 
-      <input id="groupCount" type="number" min="4" max="10" [(ngModel)]="tempGroupBatchSize"
+      <input id="groupCount" type="number" min="1" max="100" [(ngModel)]="tempGroupBatchSize"
         style="width:68px; display:inline-block; margin-right:8px;" />
 
       <button type="button" class="btn btn-outline-success" (click)="applyGroupBatchSize()">
@@ -101,7 +101,7 @@
       </button>
 
       <div style="font-size:12px; margin-top:6px; color:#444;">
-        Current: {{ groupBatchSize }} &nbsp; (min 4) &nbsp; (max 10)
+        Current: {{ groupBatchSize }} &nbsp; (min 1) &nbsp; (max 100)
       </div>
     </div>
     <div class="logo-box">
