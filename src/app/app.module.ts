@@ -10,12 +10,17 @@ import { CrushDetailsDialogComponent } from './crush-details-dialog/crush-detail
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule } from '@angular/common/http';
 import { ScrollingModule } from '@angular/cdk/scrolling';
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { Router } from '@angular/router';
+import { AppRoutingModule } from './app-routing.module';
+import { LoginComponent } from './login/login.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     GlobeViewComponent,
-    CrushDetailsDialogComponent
+    DashboardComponent,
+    LoginComponent
   ],
   imports: [
     BrowserModule,
@@ -24,7 +29,8 @@ import { ScrollingModule } from '@angular/cdk/scrolling';
     MatButtonModule,
     FormsModule,
     HttpClientModule,
-    ScrollingModule
+    ScrollingModule,
+    AppRoutingModule     
   ],
   providers: [],
   bootstrap: [AppComponent]

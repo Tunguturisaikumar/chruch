@@ -4,6 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
 import { FormsModule } from '@angular/forms';
 import { environment } from 'src/environments/environment';
+import { LoginComponent } from '../login/login.component';
+import { MatDialog } from '@angular/material/dialog';
 
 interface ChurchData {
   gender: string;
@@ -179,7 +181,16 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  constructor(private ngZone: NgZone, private http: HttpClient) { }
+  constructor(private ngZone: NgZone, private http: HttpClient, private dialog: MatDialog) { }
+
+  openLoginPopup() {
+
+  this.dialog.open(LoginComponent, {
+    width: '400px',
+    disableClose: true
+  });
+
+}
 
   ngOnInit(): void {
     this.startQuoteRotation();
@@ -828,10 +839,19 @@ ${count >= 1
     const history: { [key: string]: number[] } = {};
 
     churches.forEach(church => {
-      const gender = (church.gender || 'male').toLowerCase();
+      // ✅ Skip invalid country records
+      if (!church?.country) {
+        console.warn('Skipping church because country is missing:', church);
+        return;
+      }
+
+      const gender = (church.gender || 'male')
+        .toLowerCase()
+        .trim();
+
       const country = church.country.trim();
 
-      const countryFolder = this.normalizeCountryForFolder(country);
+      const countryFolder = this.normalizeCountryForFolder(country || '');
       const genderFolder = gender === 'female' ? 'female' : 'male';
 
       const historyKey = `${countryFolder}_${genderFolder}`;
@@ -892,7 +912,10 @@ ${count >= 1
     });
   }
 
-  private normalizeCountryForFolder(country: string): string {
+  private normalizeCountryForFolder(country: string | null | undefined): string {
+    if (!country?.trim()) {
+      return 'default';
+    }
     return country
       .trim()
       .split(/\s+/)

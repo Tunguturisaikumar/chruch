@@ -1,0 +1,23 @@
+.login-popup {
+    padding: 15px;
+}
+
+.login-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  color: #666;
+  margin-bottom: 20px;
+
+}
+
+.close-btn:hover {
+  color: red;
+}

@@ -13,9 +13,9 @@
     <p class="quotation-line translated">{{ currentTranslatedQuote }}</p>
   </div>
 
-  <!-- <div class="profile">
-    <i style="color: black;" class="fas fa-user-circle"></i>
-  </div> -->
+  <div class="profile">
+    <i style="color: black;" class="fas fa-user-circle" (click)="openLoginPopup()"></i>
+  </div>
 </div>
 
 <div id="globe-map"></div>
@@ -58,7 +58,6 @@
       &nbsp;
       <button type="button" class="btn btn-outline-info" (click)="zoomOut()">ZOOM OUT -</button>
     </div>
-    <!-- inside .menu-card (next to zoom-controls) -->
     <div class="slideshow-controls" style="margin-top:10px;">
       <label for="slideshowSeconds" style="font-weight:600; margin-right:6px;">
         Card duration (sec)

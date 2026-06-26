@@ -1,0 +1,23 @@
+<div class="login-popup">
+    <div class="login-header">
+        <h2>Admin Login</h2>
+
+        <button class="close-btn" (click)="closePopup()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div class="mb-3">
+        <label>Username</label>
+        <input class="form-control" [(ngModel)]="username">
+    </div>
+
+    <div class="mb-3">
+        <label>Password</label>
+        <input type="password" class="form-control" [(ngModel)]="password">
+    </div>
+
+    <button class="btn btn-primary w-100" (click)="login()">
+        Login
+    </button>
+</div>
