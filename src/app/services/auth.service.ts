@@ -102,4 +102,37 @@ export class AuthService {
     );
   }
 
+  // Save Card Duration
+saveCardDuration(data: any): Observable<any> {
+  return this.http.post(
+    `${this.api}/api/save-card-duration/`,
+    data,
+    {
+      withCredentials: true
+    }
+  );
+}
+
+// Save Show Past Records
+saveShowPastRecords(data: any): Observable<any> {
+  return this.http.post(
+    `${this.api}/api/save-show-past-records/`,
+    data,
+    {
+      withCredentials: true
+    }
+  );
+}
+
+// Save Group Count
+saveGroupCount(data: any): Observable<any> {
+  return this.http.post(
+    `${this.api}/api/save-group-count/`,
+    data,
+    {
+      withCredentials: true
+    }
+  );
+}
+
 }

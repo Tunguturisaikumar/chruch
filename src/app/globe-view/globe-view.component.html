@@ -76,7 +76,7 @@
         Show Past Records
       </label>
 
-      <input id="showpastrecords" type="number" min="5" max="500" [(ngModel)]="tempMaxSmallPopups"
+      <input id="showpastrecords" type="number" min="0" max="500" [(ngModel)]="tempMaxSmallPopups"
         style="width:68px; display:inline-block; margin-right:8px;" />
 
       <button type="button" class="btn btn-outline-success" (click)="applyMaxSmallPopups()">
@@ -84,7 +84,7 @@
       </button>
 
       <div style="font-size:12px; margin-top:6px; color:#444;">
-        Current: {{ maxSmallPopups }} &nbsp; (min 5) &nbsp; (max 500)
+        Current: {{ showPastRecords }} &nbsp; (min 5) &nbsp; (max 500)
       </div>
     </div>
     <div class="slideshow-controls" style="margin-top:10px;">

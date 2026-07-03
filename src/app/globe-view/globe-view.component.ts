@@ -6,6 +6,10 @@ import { FormsModule } from '@angular/forms';
 import { environment } from 'src/environments/environment';
 import { LoginComponent } from '../login/login.component';
 import { MatDialog } from '@angular/material/dialog';
+import { RealtimeService } from '../services/realtime.service';
+import { WebsocketService } from '../services/websocket.service';
+import { AuthService } from '../services/auth.service';
+import { Subscription } from 'rxjs';
 
 interface ChurchData {
   gender: string;
@@ -107,6 +111,8 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   churches: ChurchData[] = [];
   cities: CityData[] = [];
   churchMarkers: mapboxgl.Marker[] = [];
+  private websocketSubscription?: Subscription;
+  private outsideClickHandler = this.handleOutsideClick.bind(this);
 
   private animationId: number | null = null;
   private isFlying = false;
@@ -138,7 +144,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private readonly IMAGE_COOLDOWN = 5;
 
   private createdPopupKeys = new Set<string>();
-  maxSmallPopups: number = 20;        // active value
+  showPastRecords: number = 20;        // active value
   tempMaxSmallPopups: number = 20;    // input value
 
   private readonly ARGENTINA_POOL_SIZE = 10; // adjust if needed
@@ -181,20 +187,21 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  constructor(private ngZone: NgZone, private http: HttpClient, private dialog: MatDialog) { }
+  constructor(private ngZone: NgZone, private http: HttpClient, private dialog: MatDialog, private realtime: RealtimeService, private websocket: WebsocketService, private auth: AuthService) { }
 
   openLoginPopup() {
 
-  this.dialog.open(LoginComponent, {
-    width: '400px',
-    disableClose: true
-  });
+    this.dialog.open(LoginComponent, {
+      width: '400px',
+      disableClose: true
+    });
 
-}
+  }
 
   ngOnInit(): void {
+    this.loadSettings();
     this.startQuoteRotation();
-    document.addEventListener('click', this.handleOutsideClick.bind(this));
+    document.addEventListener('click', this.outsideClickHandler);
 
     this.http.get<CityData[]>('assets/worldcities.json').subscribe({
       next: (citiesData) => {
@@ -204,6 +211,21 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       error: (err) => {
         // console.error('Failed to load cities.json', err);
         this.loadChurchData();
+      }
+    });
+  }
+
+  loadSettings(): void {
+    this.auth.getSettings().subscribe({
+      next: (settings) => {
+        this.showPastRecords = settings.showPastRecords;
+        this.slideshowDelaySeconds = settings.cardDuration;
+        this.groupBatchSize = settings.groupCount;
+
+        console.log('Settings Loaded:', settings);
+      },
+      error: (err) => {
+        console.error('Failed to load settings', err);
       }
     });
   }
@@ -241,11 +263,14 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private buildDisplayList(): ChurchData[] {
+
     const result: ChurchData[] = [...this.churches];
-    const groupedActivities = ['Bible Word', 'Youversion'];
+    const groupedActivities = [
+      'Bible Reading Plan',
+      'Website Visitor'
+    ];
 
     const activityMap: { [key: string]: number[] } = {};
-
     // ✅ STEP 1: collect indexes of each activity
     this.churches.forEach((church, index) => {
       if (groupedActivities.includes(church.activity)) {
@@ -282,6 +307,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
     // ✅ STEP 3: remove nulls
     return result.filter(x => x !== null);
+
   }
 
 
@@ -307,26 +333,76 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private loadChurchData(): void {
-    const apiUrl = environment.finalapi;
-    this.http.get<ChurchData[]>(apiUrl).subscribe({
-      next: (data: ChurchData[]) => {
-        if (data && data.length > 0) {
-          this.churches = this.assignCityCoordinates(data);
-          this.assignImagesToChurches(this.churches); // ✅ ADD
-          this.preloadImages(this.churches);
 
-        } else {
-          // console.warn('API returned empty data, using fallback.');
-          this.churches = this.churches_new;
-        }
+    this.realtime.getHistory().subscribe({
+
+      next: (data) => {
+
+        // console.log("================================");
+        // console.log("History API Response");
+        // console.log("Total Records :", data.length);
+        // console.table(data);
+        // console.log("================================");
+
+        // Load initial history
+        const history = this.assignCityCoordinates(data);
+        // console.log("Churches After Coordinates :", this.churches.length);
+        this.assignImagesToChurches(history);
+
+        // Keep all history
+        this.churches = history;
+
+        // Only use latest 20 for the initial display
+        this.churches = history.slice(0, 20);
+
+        this.preloadImages(this.churches);
+
+        // Existing map initialization
         this.initializeMap();
+
+        // Start listening for live events
+        this.initializeRealtime();
+
       },
+
       error: (err) => {
-        // console.error('API error:', err, 'Using fallback data.');
-        this.churches = this.churches_new;
-        this.initializeMap();
+
+        console.error(err);
+
       }
+
     });
+
+  }
+
+  private initializeRealtime(): void {
+
+    this.websocket.connect();
+
+    this.websocketSubscription = this.websocket.events$.subscribe(event => {
+      // console.log("===============================");
+      // console.log("Received in Globe");
+      // console.table(event);
+
+      const church = this.assignCityCoordinates([event])[0];
+      // console.log("After Coordinates");
+      // console.table(church);
+
+      this.assignImagesToChurches([church]);
+
+      // Add to complete history
+      this.churches.push(church);
+
+      // Keep only latest 100
+      if (this.churches.length > 100) {
+        this.churches.shift();
+      }
+
+
+      // console.log("Current Churches :", this.churches.length);
+
+    });
+
   }
 
   private assignCityCoordinates(data: ChurchData[]): ChurchData[] {
@@ -519,12 +595,13 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   applyMaxSmallPopups(): void {
-    const v = Number(this.tempMaxSmallPopups) || 20;
+    const v = Number(this.tempMaxSmallPopups);
 
-    // clamp (optional but recommended)
-    const clamped = Math.max(5, Math.min(500, Math.floor(v)));
+    const clamped = Number.isFinite(v)
+      ? Math.max(5, Math.min(500, Math.floor(v)))
+      : 5;
 
-    this.maxSmallPopups = clamped;
+    this.showPastRecords = clamped;
     this.tempMaxSmallPopups = clamped;
 
     // 🔥 IMPORTANT: enforce immediately
@@ -532,7 +609,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private enforcePopupLimit(): void {
-    while (this.previousCountryPopups.length > this.maxSmallPopups) {
+    while (this.previousCountryPopups.length > this.showPastRecords) {
       const oldest = this.previousCountryPopups.shift();
 
       if (oldest) {
@@ -559,16 +636,48 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       this.stopSlideshow();
     }
     this.isSlideshowRunning = true;
-    let index = 0;
+
     const shownChurches: ChurchData[] = [];
     let currentMainPopup: mapboxgl.Popup | null = null;
+    const displayList = this.buildDisplayList();
+    if (displayList.length === 0) {
+      console.warn('No churches available for slideshow.');
+      return;
+    }
+    console.log("Display List Length :", displayList.length);
+    // console.table(displayList);
+    const initialCount = Math.min(
+      this.showPastRecords,
+      displayList.length
+    );
 
+    let index = initialCount;
+    if (index >= displayList.length) {
+      index = 0;
+    }
+    console.log("=================================");
+    console.log("Initial Small Popup Count :", initialCount);
+    console.log("Max Small Popups         :", this.showPastRecords);
+    console.log("Main Popup Starts Index  :", index);
+    console.log("First Main Popup Record :", displayList[index]);
+    console.log("=================================");
+    shownChurches.push(
+      ...displayList.slice(0, initialCount)
+    ); // ✅ IMPORTANT
+    // console.table(displayList);
+    // console.log("Initial Display List :", displayList.length);
 
     const showNextChurch = async () => {
       if (!this.map || this.isFlying || !this.isSlideshowRunning) return;
-      const displayList = this.buildDisplayList(); // ✅ IMPORTANT
+
 
       const church = displayList[index];
+      console.log("Display List Length :", displayList.length);
+      console.log("Current Index :", index);
+      console.log(
+        `Main Popup -> Index: ${index}, Church:`,
+        church
+      );
 
       if (!church || church.latitude === 0 || church.longitude === 0) {
         index = (index + 1) % displayList.length;
@@ -593,7 +702,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       });
 
       // small popups
-      const recentChurches = shownChurches.slice(-25);
+      const recentChurches = shownChurches;
 
       recentChurches.forEach(prev => {
         const key = `${prev.latitude}_${prev.longitude}_${prev.country}`;
@@ -617,13 +726,13 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       let popupHtml: string;
       if (church.groupCount && church.groupCount > 0) {
 
-        console.log('🚀 GROUP DISPLAYED:', {
-          activity: church.activity,
-          country: church.country,
-          selectedBatchSize: this.groupBatchSize,
-          displayedOthersCount: church.groupCount,
-          totalRecordsInGroup: church.groupCount + 1
-        });
+        // console.log('🚀 GROUP DISPLAYED:', {
+        //   activity: church.activity,
+        //   country: church.country,
+        //   selectedBatchSize: this.groupBatchSize,
+        //   displayedOthersCount: church.groupCount,
+        //   totalRecordsInGroup: church.groupCount + 1
+        // });
 
         popupHtml = this.buildPopupCardGrouped(
           church,
@@ -632,10 +741,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       } else {
 
-        console.log('👤 SINGLE DISPLAYED:', {
-          activity: church.activity,
-          country: church.country
-        });
+        // console.log('👤 SINGLE DISPLAYED:', {
+        //   activity: church.activity,
+        //   country: church.country
+        // });
 
         popupHtml = this.buildPopupCard(church);
       }
@@ -651,6 +760,17 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       this.isMainPopupActive = true;
       shownChurches.push(church);
+      console.log('-----------------------------');
+      console.log('Configured showPastRecords :', this.showPastRecords);
+      console.log('Before trim:', shownChurches.length);
+
+      while (shownChurches.length > this.showPastRecords) {
+        console.log('Removing oldest popup...');
+        shownChurches.shift();
+      }
+
+      console.log('After trim:', shownChurches.length);
+      console.log('-----------------------------');
 
       // delay
       await new Promise<void>((res) => {
@@ -1290,10 +1410,50 @@ ${count >= 1
   }
 
   ngOnDestroy(): void {
-    if (this.map) this.map.remove();
-    if (this.animationId) cancelAnimationFrame(this.animationId);
-    if (this.quoteInterval) clearInterval(this.quoteInterval);
-    document.removeEventListener('click', this.handleOutsideClick.bind(this));
+
+    // ----------------------------------
+    // Stop WebSocket
+    // ----------------------------------
+
+    if (this.websocketSubscription) {
+      this.websocketSubscription.unsubscribe();
+    }
+
+    this.websocket.disconnect();
+
+    // ----------------------------------
+    // Remove Map
+    // ----------------------------------
+
+    if (this.map) {
+      this.map.remove();
+    }
+
+    // ----------------------------------
+    // Stop Animation
+    // ----------------------------------
+
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+    }
+
+    // ----------------------------------
+    // Stop Timers
+    // ----------------------------------
+
+    if (this.quoteInterval) {
+      clearInterval(this.quoteInterval);
+    }
+
+    // ----------------------------------
+    // Remove Event Listeners
+    // ----------------------------------
+
+    document.removeEventListener(
+      'click',
+      this.outsideClickHandler
+    );
+
   }
 
   private handleOutsideClick() {
