@@ -4,14 +4,10 @@
   <header class="header">
 
     <div class="title">
-      <img src="./assets/logo.jpg"
-           alt="logo"
-           width="120">
+      <img src="./assets/logo.jpg" alt="logo" width="120">
     </div>
 
-    <button
-      class="logout-btn"
-      (click)="logout()">
+    <button class="logout-btn" (click)="logout()">
 
       Logout
 
@@ -27,14 +23,9 @@
 
       <h3>Chat Interval</h3>
 
-      <input
-        type="number"
-        class="form-control"
-        [(ngModel)]="tempChatInterval">
+      <input type="number" class="form-control" [(ngModel)]="tempChatInterval">
 
-      <button
-        class="btn btn-success mt-3"
-        (click)="saveChatInterval()">
+      <button class="btn btn-success mt-3" (click)="saveChatInterval()">
 
         Save
 
@@ -52,14 +43,9 @@
 
       <h3>Reading Interval</h3>
 
-      <input
-        type="number"
-        class="form-control"
-        [(ngModel)]="tempReadingInterval">
+      <input type="number" class="form-control" [(ngModel)]="tempReadingInterval">
 
-      <button
-        class="btn btn-success mt-3"
-        (click)="saveReadingInterval()">
+      <button class="btn btn-success mt-3" (click)="saveReadingInterval()">
 
         Save
 
@@ -77,14 +63,9 @@
 
       <h3>Study Interval</h3>
 
-      <input
-        type="number"
-        class="form-control"
-        [(ngModel)]="tempStudyInterval">
+      <input type="number" class="form-control" [(ngModel)]="tempStudyInterval">
 
-      <button
-        class="btn btn-success mt-3"
-        (click)="saveStudyInterval()">
+      <button class="btn btn-success mt-3" (click)="saveStudyInterval()">
 
         Save
 
@@ -102,14 +83,9 @@
 
       <h3>Website Interval</h3>
 
-      <input
-        type="number"
-        class="form-control"
-        [(ngModel)]="tempWebsiteInterval">
+      <input type="number" class="form-control" [(ngModel)]="tempWebsiteInterval">
 
-      <button
-        class="btn btn-success mt-3"
-        (click)="saveWebsiteInterval()">
+      <button class="btn btn-success mt-3" (click)="saveWebsiteInterval()">
 
         Save
 
@@ -117,6 +93,65 @@
 
       <p class="mt-2">
         Current : {{ websiteInterval }}
+      </p>
+
+    </div>
+
+    <!-- Group Count -->
+    <div class="control-card">
+
+      <h3>Group Count</h3>
+
+      <input type="number" class="form-control" [(ngModel)]="tempGroupCount">
+
+      <button class="btn btn-success mt-3" (click)="saveGroupCount()">
+
+        Save
+
+      </button>
+
+      <p class="mt-2">
+        Current : {{ groupCount }}
+      </p>
+
+    </div>
+
+
+    <!-- Show Past Records -->
+    <div class="control-card">
+
+      <h3>Show Past Records</h3>
+
+      <input type="number" class="form-control" [(ngModel)]="tempShowPastRecords">
+
+      <button class="btn btn-success mt-3" (click)="saveShowPastRecords()">
+
+        Save
+
+      </button>
+
+      <p class="mt-2">
+        Current : {{ showPastRecords }}
+      </p>
+
+    </div>
+
+
+    <!-- Card Duration -->
+    <div class="control-card">
+
+      <h3>Card Duration</h3>
+
+      <input type="number" class="form-control" [(ngModel)]="tempCardDuration">
+
+      <button class="btn btn-success mt-3" (click)="saveCardDuration()">
+
+        Save
+
+      </button>
+
+      <p class="mt-2">
+        Current : {{ cardDuration }}
       </p>
 
     </div>

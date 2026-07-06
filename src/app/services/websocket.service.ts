@@ -7,17 +7,23 @@ import { environment } from 'src/environments/environment';
 })
 export class WebsocketService {
 
-  private socket?: WebSocket;
+  constructor() { }
 
-  public events$ = new Subject<any>();
+  private socket?: WebSocket;
 
   private reconnectDelay = 5000;
 
   private manuallyClosed = false;
 
-  // --------------------------------------------------------
-  // Connect
-  // --------------------------------------------------------
+  // ========================================================
+  // EVENTS
+  // ========================================================
+
+  public events$ = new Subject<any>();
+
+  // ========================================================
+  // CONNECT
+  // ========================================================
 
   connect(): void {
 
@@ -28,34 +34,36 @@ export class WebsocketService {
         this.socket.readyState === WebSocket.CONNECTING
       )
     ) {
-      console.log("WebSocket already connected.");
+      console.log('WebSocket already connected.');
       return;
     }
 
     this.manuallyClosed = false;
 
-    console.log("====================================");
-    console.log("Connecting WebSocket...");
+    console.log('====================================');
+    console.log('Connecting WebSocket...');
     console.log(environment.websocketUrl);
-    console.log("====================================");
+    console.log('====================================');
 
-    this.socket = new WebSocket(environment.websocketUrl);
+    this.socket = new WebSocket(
+      environment.websocketUrl
+    );
 
-    // --------------------------------------------------------
-    // Open
-    // --------------------------------------------------------
+    // ========================================================
+    // OPEN
+    // ========================================================
 
     this.socket.onopen = () => {
 
-      console.log("====================================");
-      console.log("✅ WebSocket Connected");
-      console.log("====================================");
+      console.log('====================================');
+      console.log('✅ WebSocket Connected');
+      console.log('====================================');
 
     };
 
-    // --------------------------------------------------------
-    // Message
-    // --------------------------------------------------------
+    // ========================================================
+    // MESSAGE
+    // ========================================================
 
     this.socket.onmessage = (message) => {
 
@@ -67,11 +75,11 @@ export class WebsocketService {
           return;
         }
 
-        // ------------------------
-        // History
-        // ------------------------
+        // ----------------------------------------------------
+        // HISTORY
+        // ----------------------------------------------------
 
-        if (data.type === "history") {
+        if (data.type === 'history') {
 
           console.log(
             `History received (${data.events.length} events)`
@@ -84,25 +92,33 @@ export class WebsocketService {
           });
 
           return;
+
         }
 
-        // ------------------------
-        // Live Event
-        // ------------------------
+        // ----------------------------------------------------
+        // LIVE EVENT
+        // ----------------------------------------------------
 
-        if (data.type === "event") {
+        if (data.type === 'event') {
 
-          this.events$.next(data.event);
-          console.log("🌍 Live Event Received", data.event);
+          console.log(
+            '🌍 Live Event Received',
+            data.event
+          );
+
+          this.events$.next(
+            data.event
+          );
 
           return;
+
         }
 
       }
       catch (error) {
 
         console.error(
-          "WebSocket parse error",
+          'WebSocket parse error',
           error
         );
 
@@ -110,22 +126,22 @@ export class WebsocketService {
 
     };
 
-    // --------------------------------------------------------
-    // Error
-    // --------------------------------------------------------
+    // ========================================================
+    // ERROR
+    // ========================================================
 
     this.socket.onerror = (error) => {
 
       console.error(
-        "WebSocket Error",
+        'WebSocket Error',
         error
       );
 
     };
 
-    // --------------------------------------------------------
-    // Close
-    // --------------------------------------------------------
+    // ========================================================
+    // CLOSE
+    // ========================================================
 
     this.socket.onclose = (event) => {
 
@@ -153,9 +169,9 @@ export class WebsocketService {
 
   }
 
-  // --------------------------------------------------------
-  // Disconnect
-  // --------------------------------------------------------
+  // ========================================================
+  // DISCONNECT
+  // ========================================================
 
   disconnect(): void {
 
@@ -171,9 +187,9 @@ export class WebsocketService {
 
   }
 
-  // --------------------------------------------------------
-  // Connection Status
-  // --------------------------------------------------------
+  // ========================================================
+  // STATUS
+  // ========================================================
 
   isConnected(): boolean {
 
