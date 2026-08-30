@@ -14,6 +14,8 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { Router } from '@angular/router';
 import { AppRoutingModule } from './app-routing.module';
 import { LoginComponent } from './login/login.component';
+import { ToastrModule, ToastrService } from 'ngx-toastr';
+import { NgxSpinnerModule, NgxSpinnerService } from 'ngx-spinner';
 
 @NgModule({
   declarations: [
@@ -30,7 +32,14 @@ import { LoginComponent } from './login/login.component';
     FormsModule,
     HttpClientModule,
     ScrollingModule,
-    AppRoutingModule     
+    AppRoutingModule,
+    NgxSpinnerModule,
+  ToastrModule.forRoot({
+    positionClass: 'toast-top-right',
+    timeOut: 3000,
+    preventDuplicates: true,
+    closeButton: true
+  })   
   ],
   providers: [],
   bootstrap: [AppComponent]

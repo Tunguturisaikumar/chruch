@@ -1,378 +1,1653 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import {
-  BehaviorSubject,
-  Observable
-} from 'rxjs';
-
-import { environment } from 'src/environments/environment';
-
-import { ChurchData } from '../models/church-data';
-import { GroupingService } from './grouping.service';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class RealtimeService {
-
-  constructor(
-
-    private http: HttpClient,
-
-    private groupingService: GroupingService
-
-  ) { }
-
-  // =====================================================
-  // FLAGS
-  // =====================================================
-
-  private historyLoaded = false;
-
-  // =====================================================
-  // SETTINGS
-  // =====================================================
-
-  private showPastRecords = 20;
-
-  private groupBatchSize = 4;
-
-  // =====================================================
-  // HISTORY
-  // =====================================================
-
-  private churchesSubject =
-    new BehaviorSubject<ChurchData[]>([]);
-
-  churches$ =
-    this.churchesSubject.asObservable();
-
-  // =====================================================
-  // SMALL POPUPS
-  // =====================================================
-
-  private smallPopupSubject =
-    new BehaviorSubject<ChurchData[]>([]);
-
-  smallPopupChurches$ =
-    this.smallPopupSubject.asObservable();
-
-  // Emit ONLY the newly-added popup
-
-  private latestSmallPopupSubject =
-    new BehaviorSubject<ChurchData | null>(null);
-
-  latestSmallPopup$ =
-    this.latestSmallPopupSubject.asObservable();
-
-  // =====================================================
-  // LIVE QUEUE
-  // =====================================================
-
-  private liveQueueSubject =
-    new BehaviorSubject<ChurchData[]>([]);
-
-  liveQueue$ =
-    this.liveQueueSubject.asObservable();
-
-  // =====================================================
-  // API
-  // =====================================================
-
-  getHistory(): Observable<ChurchData[]> {
-
-    return this.http.get<ChurchData[]>(
-
-      `${environment.apiUrl}/realtime/history/`
-
-    );
-
-  }
-
-  getSettings(): Observable<any> {
-
-    return this.http.get(
-
-      `${environment.apiUrl}/settings/`
-
-    );
-
-  }
-
-  // =====================================================
-  // SETTINGS
-  // =====================================================
-
-  setShowPastRecords(value: number): void {
-
-    this.showPastRecords = value;
-
-  }
-
-  setGroupBatchSize(value: number): void {
-
-    this.groupBatchSize = value;
-
-  }
-
-  // =====================================================
-  // GETTERS
-  // =====================================================
-
-  get churches(): ChurchData[] {
-
-    return [...this.churchesSubject.value];
-
-  }
-
-  get smallPopupChurches(): ChurchData[] {
-
-    return [...this.smallPopupSubject.value];
-
-  }
-
-  get liveQueue(): ChurchData[] {
-
-    return [...this.liveQueueSubject.value];
-
-  }
-
-  // =====================================================
-  // HISTORY
-  // =====================================================
-
-  setHistory(churches: ChurchData[]): void {
-
-    if (this.historyLoaded) {
-
-      console.log("History already initialized.");
-
-      return;
-
-    }
-
-    this.historyLoaded = true;
-
-    console.log("========== INITIAL HISTORY ==========");
-    console.log("Records :", churches.length);
-
-    // Keep complete history
-    this.churchesSubject.next([
-      ...churches
-    ]);
-
-    // Build grouped display only ONCE
-    const grouped = this.groupingService.buildDisplayList(
-
-      churches,
-
-      this.groupBatchSize
-
-    );
-
-    // First N records become small popups
-    const small = grouped.slice(
-
-      0,
-
-      this.showPastRecords
-
-    );
-
-    this.smallPopupSubject.next(small);
-
-    console.log("Small Popups :", small.length);
-
-  }
-
-  // =====================================================
-  // CLEAR
-  // =====================================================
-
-  clear(): void {
-
-    this.historyLoaded = false;
-
-    this.churchesSubject.next([]);
-
-    this.smallPopupSubject.next([]);
-
-    this.liveQueueSubject.next([]);
-
-    this.latestSmallPopupSubject.next(null);
-
-  }
-
-  // =====================================================
-  // LIVE EVENT
-  // =====================================================
-
-  addLiveEvent(church: ChurchData): void {
-
-    const history = [
-      ...this.churchesSubject.value
-    ];
-
-    const duplicate = history.find(x =>
-
-      x.activity === church.activity &&
-      x.country === church.country &&
-      x.city === church.city &&
-      x.language === church.language
-
-    );
-
-    if (duplicate) {
-
-      return;
-
-    }
-
-    // ----------------------------------
-    // Maintain latest 100 history
-    // ----------------------------------
-
-    history.unshift(church);
-
-    if (history.length > 100) {
-
-      history.pop();
-
-    }
-
-    this.churchesSubject.next(history);
-
-    // ----------------------------------
-    // Add ONLY to live queue
-    // ----------------------------------
-
-    const queue = [
-      ...this.liveQueueSubject.value
-    ];
-
-    console.log("========== LIVE EVENT ==========");
-console.log("Country:", church.country);
-console.log("Activity:", church.activity);
-
-    queue.push(church);
-
-    this.liveQueueSubject.next(queue);
-
-console.log("Queue AFTER PUSH:", queue.length);
-console.log("===============================");
-
-  }
-
-  // =====================================================
-  // LIVE QUEUE HELPERS
-  // =====================================================
-
-  getNextLiveEvent(): ChurchData | null {
-
-    const queue = [
-      ...this.liveQueueSubject.value
-    ];
-
-    console.log("Queue BEFORE:", queue.length);
-
-    if (queue.length === 0) {
-
-      return null;
-
-    }
-
-    const church = queue.shift()!;
-
-    this.liveQueueSubject.next(queue);
-
-    console.log("Queue AFTER:", this.liveQueueSubject.value.length);
-
-    return church;
-
-  }
-
-  // =====================================================
-  // MAIN POPUP -> SMALL POPUP
-  // =====================================================
-
-  moveMainPopupToSmallPopup(
-    church: ChurchData
-  ): void {
-
-    const small = [
-      ...this.smallPopupSubject.value
-    ];
-
-    // Add newest popup to the beginning
-
-    small.unshift(church);
-
-    // Maintain configured history size
-
-    while (
-
-      small.length >
-
-      this.showPastRecords
-
-    ) {
-
-      small.pop();
-
-    }
-
-    this.smallPopupSubject.next(small);
-
-    // Notify GlobeViewComponent to create ONLY this popup
-
-    this.latestSmallPopupSubject.next(
-      church
-    );
-
-  }
-
-  // =====================================================
-  // LIVE QUEUE STATUS
-  // =====================================================
-
-  hasLiveEvents(): boolean {
-
-    return (
-
-      this.liveQueueSubject.value.length >
-
-      0
-
-    );
-
-  }
-
-  getLiveQueueLength(): number {
-
-    return this.liveQueueSubject.value.length;
-
-  }
-
-  // =====================================================
-  // COUNTS
-  // =====================================================
-
-  getHistoryCount(): number {
-
-    return this.churchesSubject.value.length;
-
-  }
-
-  getSmallPopupCount(): number {
-
-    return this.smallPopupSubject.value.length;
-
-  }
-
-  getLiveQueueCount(): number {
-
-    return this.liveQueueSubject.value.length;
-
-  }
-
+import { Injectable } from '@angular/core';
+
+
+
+import { HttpClient } from '@angular/common/http';
+
+
+
+import {
+
+
+
+  BehaviorSubject,
+
+
+
+  Observable
+
+
+
+} from 'rxjs';
+
+
+
+
+
+
+
+import { environment } from 'src/environments/environment';
+
+
+
+
+
+
+
+import { ChurchData } from '../models/church-data';
+
+
+
+import { GroupingService } from './grouping.service';
+
+
+
+
+
+
+
+@Injectable({
+
+
+
+  providedIn: 'root'
+
+
+
+})
+
+
+
+export class RealtimeService {
+
+
+
+
+
+
+
+  constructor(
+
+
+
+
+
+
+
+    private http: HttpClient,
+
+
+
+
+
+
+
+    private groupingService: GroupingService
+
+
+
+
+
+
+
+  ) { }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // FLAGS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  private historyLoaded = false;
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // SETTINGS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  private showPastRecords = 20;
+
+
+
+
+
+
+
+  private groupBatchSize = 4;
+
+
+
+
+
+
+
+  public activities: any = null;
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // HISTORY
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  private churchesSubject =
+
+
+
+    new BehaviorSubject<ChurchData[]>([]);
+
+
+
+
+
+
+
+  churches$ =
+
+
+
+    this.churchesSubject.asObservable();
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // SMALL POPUPS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  private smallPopupSubject =
+
+
+
+    new BehaviorSubject<ChurchData[]>([]);
+
+
+
+
+
+
+
+  smallPopupChurches$ =
+
+
+
+    this.smallPopupSubject.asObservable();
+
+
+
+
+
+
+
+  // Emit ONLY the newly-added popup
+
+
+
+
+
+
+
+  private latestSmallPopupSubject =
+
+
+
+    new BehaviorSubject<ChurchData | null>(null);
+
+
+
+
+
+
+
+  latestSmallPopup$ =
+
+
+
+    this.latestSmallPopupSubject.asObservable();
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // LIVE QUEUE
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  private liveQueueSubject =
+
+
+
+    new BehaviorSubject<ChurchData[]>([]);
+
+
+
+
+
+
+
+  liveQueue$ =
+
+
+
+    this.liveQueueSubject.asObservable();
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // API
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  getHistory(): Observable<ChurchData[]> {
+
+
+
+
+
+
+
+    return this.http.get<ChurchData[]>(
+
+
+
+
+
+
+
+      `${environment.apiUrl}/realtime/history/`
+
+
+
+
+
+
+
+    );
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  getSettings(): Observable<any> {
+
+
+
+
+
+
+
+    return this.http.get(
+
+
+
+
+
+
+
+      `${environment.apiUrl}/settings/`
+
+
+
+
+
+
+
+    );
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // SETTINGS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  setShowPastRecords(value: number): void {
+
+
+
+
+
+
+
+    this.showPastRecords = value;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  setGroupBatchSize(value: number): void {
+
+
+
+
+
+
+
+    this.groupBatchSize = value;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  setActivities(activities: any): void {
+
+
+
+    this.activities = activities;
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // GETTERS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  get churches(): ChurchData[] {
+
+
+
+
+
+
+
+    return [...this.churchesSubject.value];
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  get smallPopupChurches(): ChurchData[] {
+
+
+
+
+
+
+
+    return [...this.smallPopupSubject.value];
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  get liveQueue(): ChurchData[] {
+
+
+
+
+
+
+
+    return [...this.liveQueueSubject.value];
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // HISTORY
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  setHistory(churches: ChurchData[]): void {
+
+
+
+
+
+
+
+    if (this.historyLoaded) {
+
+
+
+
+
+
+
+      console.log("History already initialized.");
+
+
+
+
+
+
+
+      return;
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+    this.historyLoaded = true;
+
+
+
+
+
+
+
+    console.log("========== INITIAL HISTORY ==========");
+
+
+
+    console.log("Records :", churches.length);
+
+
+
+
+
+
+
+    const activityKeyMap: { [key: string]: string } = {
+
+
+
+      'Website Visitor': 'website',
+
+
+
+      'Bible Reading Plan': 'reading',
+
+
+
+      'Bible Learn': 'study',
+
+
+
+      'Bible Study': 'study',
+
+
+
+      'Chat': 'chat'
+
+
+
+    };
+
+
+
+
+
+
+
+    // Sort complete history by activity order configured in settings
+
+
+
+    const sortedChurches = [...churches].sort((a, b) => {
+
+
+
+      const aKey = activityKeyMap[a.activity || ''] || 'website';
+
+
+
+      const bKey = activityKeyMap[b.activity || ''] || 'website';
+
+
+
+      
+
+
+
+      const aOrder = (this.activities && this.activities[aKey] && typeof this.activities[aKey].order === 'number') 
+
+
+
+        ? this.activities[aKey].order 
+
+
+
+        : 99;
+
+
+
+      const bOrder = (this.activities && this.activities[bKey] && typeof this.activities[bKey].order === 'number') 
+
+
+
+        ? this.activities[bKey].order 
+
+
+
+        : 99;
+
+
+
+        
+
+
+
+      return aOrder - bOrder;
+
+
+
+    });
+
+
+
+
+
+
+
+    // Keep complete history
+
+
+
+    this.churchesSubject.next(sortedChurches);
+
+
+
+
+
+
+
+    // Build grouped display only ONCE
+
+
+
+    const grouped = this.groupingService.buildDisplayList(
+
+
+
+
+
+
+
+      sortedChurches,
+
+
+
+
+
+
+
+      this.groupBatchSize,
+
+
+
+
+
+
+
+      this.activities
+
+
+
+
+
+
+
+    );
+
+
+
+
+
+
+
+    // First N records become small popups
+
+
+
+    const small = grouped.slice(
+
+
+
+
+
+
+
+      0,
+
+
+
+
+
+
+
+      this.showPastRecords
+
+
+
+
+
+
+
+    );
+
+
+
+
+
+
+
+    this.smallPopupSubject.next(small);
+
+
+
+
+
+
+
+    console.log("Small Popups :", small.length);
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // CLEAR
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  clear(): void {
+
+
+
+
+
+
+
+    this.historyLoaded = false;
+
+
+
+
+
+
+
+    this.churchesSubject.next([]);
+
+
+
+
+
+
+
+    this.smallPopupSubject.next([]);
+
+
+
+
+
+
+
+    this.liveQueueSubject.next([]);
+
+
+
+
+
+
+
+    this.latestSmallPopupSubject.next(null);
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // LIVE EVENT
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  addLiveEvent(church: ChurchData): void {
+
+
+
+
+
+
+
+    const history = [
+
+
+
+      ...this.churchesSubject.value
+
+
+
+    ];
+
+
+
+
+
+
+
+    const duplicate = history.find(x =>
+
+
+
+      x.eventId && church.eventId ? x.eventId === church.eventId :
+
+
+
+      (x.activity === church.activity &&
+
+
+
+       x.country === church.country &&
+
+
+
+       x.city === church.city &&
+
+
+
+       x.language === church.language)
+
+
+
+    );
+
+
+
+
+
+
+
+    if (duplicate) {
+
+
+
+
+
+
+
+      return;
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+    // ----------------------------------
+
+
+
+    // Maintain latest 100 history
+
+
+
+    // ----------------------------------
+
+
+
+
+
+
+
+    history.unshift(church);
+
+
+
+
+
+
+
+    if (history.length > 100) {
+
+
+
+
+
+
+
+      history.pop();
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+    this.churchesSubject.next(history);
+
+
+
+
+
+
+
+    // ----------------------------------
+
+
+
+    // Add ONLY to live queue
+
+
+
+    // ----------------------------------
+
+
+
+
+
+
+
+    const queue = [
+
+
+
+      ...this.liveQueueSubject.value
+
+
+
+    ];
+
+
+
+
+
+
+
+    console.log("========== LIVE EVENT ==========");
+
+
+
+console.log("Country:", church.country);
+
+
+
+console.log("Activity:", church.activity);
+
+
+
+
+
+
+
+    queue.push(church);
+
+
+
+
+
+
+
+    this.liveQueueSubject.next(queue);
+
+
+
+
+
+
+
+console.log("Queue AFTER PUSH:", queue.length);
+
+
+
+console.log("===============================");
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // LIVE QUEUE HELPERS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  getNextLiveEvent(): ChurchData | null {
+
+
+
+
+
+
+
+    const queue = [
+
+
+
+      ...this.liveQueueSubject.value
+
+
+
+    ];
+
+
+
+
+
+
+
+    console.log("Queue BEFORE:", queue.length);
+
+
+
+
+
+
+
+    if (queue.length === 0) {
+
+
+
+
+
+
+
+      return null;
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+    const church = queue.shift()!;
+
+
+
+
+
+
+
+    this.liveQueueSubject.next(queue);
+
+
+
+
+
+
+
+    console.log("Queue AFTER:", this.liveQueueSubject.value.length);
+
+
+
+
+
+
+
+    return church;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // MAIN POPUP -> SMALL POPUP
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  moveMainPopupToSmallPopup(
+
+
+
+    church: ChurchData
+
+
+
+  ): void {
+
+
+
+
+
+
+
+    const small = [
+
+
+
+      ...this.smallPopupSubject.value
+
+
+
+    ];
+
+
+
+
+
+
+
+    // Add newest popup to the beginning
+
+
+
+
+
+
+
+    small.unshift(church);
+
+
+
+
+
+
+
+    // Maintain configured history size
+
+
+
+
+
+
+
+    while (
+
+
+
+
+
+
+
+      small.length >
+
+
+
+
+
+
+
+      this.showPastRecords
+
+
+
+
+
+
+
+    ) {
+
+
+
+
+
+
+
+      small.pop();
+
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+    this.smallPopupSubject.next(small);
+
+
+
+
+
+
+
+    // Notify GlobeViewComponent to create ONLY this popup
+
+
+
+
+
+
+
+    this.latestSmallPopupSubject.next(
+
+
+
+      church
+
+
+
+    );
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // LIVE QUEUE STATUS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  hasLiveEvents(): boolean {
+
+
+
+
+
+
+
+    return (
+
+
+
+
+
+
+
+      this.liveQueueSubject.value.length >
+
+
+
+
+
+
+
+      0
+
+
+
+
+
+
+
+    );
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  getLiveQueueLength(): number {
+
+
+
+
+
+
+
+    return this.liveQueueSubject.value.length;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  // =====================================================
+
+
+
+  // COUNTS
+
+
+
+  // =====================================================
+
+
+
+
+
+
+
+  getHistoryCount(): number {
+
+
+
+
+
+
+
+    return this.churchesSubject.value.length;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  getSmallPopupCount(): number {
+
+
+
+
+
+
+
+    return this.smallPopupSubject.value.length;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+  getLiveQueueCount(): number {
+
+
+
+
+
+
+
+    return this.liveQueueSubject.value.length;
+
+
+
+
+
+
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+  getLatestEventForActivity(activityKey: string): ChurchData | null {
+
+    const list = this.churchesSubject.value;
+
+    const keyToNamesMap: { [key: string]: string[] } = {
+
+      'chat': ['Chat'],
+
+      'study': ['Bible Learn', 'Bible Study', 'Bible Study Lesson Completed'],
+
+      'reading': ['Bible Reading Plan', 'Youversion'],
+
+      'website': ['Website Visitor', 'Bible Word']
+
+    };
+
+    const targetNames = keyToNamesMap[activityKey] || [];
+
+    const found = list.find(church => 
+
+      church && church.activity && targetNames.includes(church.activity)
+
+    );
+
+    return found || null;
+
+  }
+
 }

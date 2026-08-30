@@ -44,4 +44,6 @@ export interface ChurchData {
 
   outcomeTitle?: string;
 
+  eventId?: string;
+
 }

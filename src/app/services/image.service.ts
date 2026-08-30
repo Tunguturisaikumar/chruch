@@ -325,6 +325,8 @@ private resolveImage(
 
     img.onerror = () => {
 
+      console.warn(`Failed to load image from GCP bucket: ${imageUrl}. Falling back to default.`);
+
       this.imageCache[cacheKey] =
 
         gender === 'female'

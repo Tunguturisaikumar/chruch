@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { ToastrModule, ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-dashboard',
@@ -11,7 +12,9 @@ export class DashboardComponent {
 
   constructor(
     private router: Router,
-    private auth: AuthService
+    private auth: AuthService,
+      private toastr: ToastrService
+      
   ) { }
 
   chatInterval!: number;
@@ -20,7 +23,18 @@ export class DashboardComponent {
   websiteInterval!: number;
   cardDuration!: number;
   showPastRecords!: number;
-  groupCount!: number;
+  activities: any = {
+    chat: { groupCount: 4, order: 1 },
+    reading: { groupCount: 4, order: 2 },
+    study: { groupCount: 4, order: 3 },
+    website: { groupCount: 4, order: 4 }
+  };
+  tempActivities: any = {
+    chat: { groupCount: 4, order: 1 },
+    reading: { groupCount: 4, order: 2 },
+    study: { groupCount: 4, order: 3 },
+    website: { groupCount: 4, order: 4 }
+  };
 
   tempChatInterval!: number;
   tempReadingInterval!: number;
@@ -28,7 +42,6 @@ export class DashboardComponent {
   tempWebsiteInterval!: number;
   tempCardDuration!: number;
   tempShowPastRecords!: number;
-  tempGroupCount!: number;
 
   ngOnInit() {
 
@@ -50,7 +63,6 @@ export class DashboardComponent {
         this.websiteInterval = res.websiteInterval;
         this.cardDuration = res.cardDuration;
         this.showPastRecords = res.showPastRecords;
-        this.groupCount = res.groupCount;
 
         this.tempChatInterval = res.chatInterval;
         this.tempReadingInterval = res.readingInterval;
@@ -58,7 +70,11 @@ export class DashboardComponent {
         this.tempWebsiteInterval = res.websiteInterval;
          this.tempCardDuration = res.cardDuration;
         this.tempShowPastRecords = res.showPastRecords;
-        this.tempGroupCount = res.groupCount;
+
+        if (res.activities) {
+          this.activities = JSON.parse(JSON.stringify(res.activities));
+          this.tempActivities = JSON.parse(JSON.stringify(res.activities));
+        }
 
 
       },
@@ -181,42 +197,48 @@ saveShowPastRecords() {
 
 }
 
-saveGroupCount() {
 
-  this.auth.saveGroupCount({
+  saveActivitySettings() {
+    this.auth.saveActivitySettings({
+      activities: this.tempActivities
+    }).subscribe({
+      next: () => {
+        this.loadSettings();
+        this.toastr.success('Activity settings saved successfully', 'Success');
+      },
+      error: err => {
+        console.error(err);
+        this.toastr.error('Failed to save activity settings', 'Error');
+      }
+    });
+  }
 
-    groupCount: this.tempGroupCount
+  logout() {
 
-  }).subscribe({
+  this.auth.logout().subscribe({
 
     next: () => {
 
-      this.loadSettings();
+      this.toastr.success(
+        'Logout Successful',
+        'Success'
+      );
+
+      this.router.navigate(['/']);
+
+    },
+
+    error: () => {
+
+      this.toastr.error(
+        'Logout Failed',
+        'Error'
+      );
 
     }
 
   });
 
 }
-
-  logout() {
-
-    this.auth.logout().subscribe({
-
-      next: () => {
-
-        this.router.navigate(['/']);
-
-      },
-
-      error: () => {
-
-        this.router.navigate(['/']);
-
-      }
-
-    });
-
-  }
 
 }

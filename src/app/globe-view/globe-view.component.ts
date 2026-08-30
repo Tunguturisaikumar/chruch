@@ -11,6 +11,7 @@ import { PopupService } from '../services/popup.service';
 import { ImageService } from '../services/image.service';
 import { RealtimeService } from '../services/realtime.service';
 import { WebsocketService } from '../services/websocket.service';
+import { GroupingService } from '../services/grouping.service';
 
 interface ChurchData {
   gender: string;
@@ -130,6 +131,11 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   groupBatchSize: number = 4;
   tempGroupBatchSize: number = 4;
   private isSlideshowRunning = false;
+  private slideshowRunId = 0;
+  chatInterval!: number;
+  readingInterval!: number;
+  studyInterval!: number;
+  websiteInterval!: number;
   private latestPopupSubscription?: Subscription;
   private websocketSubscription?: Subscription;
 
@@ -175,7 +181,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
 
     private http: HttpClient,
-
+    private groupingService: GroupingService,
   ) { }
 
 
@@ -208,7 +214,13 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       next: (settings) => {
         this.showPastRecords = settings.showPastRecords;
         this.slideshowDelaySeconds = settings.cardDuration;
-        this.groupBatchSize = settings.groupCount;
+        this.chatInterval = settings.chatInterval;
+        this.readingInterval = settings.readingInterval;
+        this.studyInterval = settings.studyInterval;
+        this.websiteInterval = settings.websiteInterval;
+        if (settings.activities) {
+          this.realtimeService.setActivities(settings.activities);
+        }
       },
       error: (err) => {
         console.error('Failed to load settings', err);
@@ -234,22 +246,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
   }
 
-  applyGroupBatchSize(): void {
 
-    const v = Number(this.tempGroupBatchSize) || 4;
-
-    const clamped = Math.max(1, Math.min(100, Math.floor(v)));
-
-    this.groupBatchSize = clamped;
-
-    this.tempGroupBatchSize = clamped;
-
-    // Update RealtimeService
-    this.realtimeService.setGroupBatchSize(clamped);
-
-    this.restartSlideshow();
-
-  }
 
   private restartSlideshow(): void {
 
@@ -658,115 +655,202 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     console.log("Live Queue:", this.realtimeService.getLiveQueueCount());
     console.log("Small:", this.realtimeService.smallPopupChurches.length);
     console.log("===============================");
+    
     if (this.isSlideshowRunning) {
       this.stopSlideshow();
     }
     this.isSlideshowRunning = true;
+    this.slideshowRunId++;
+    const currentRunId = this.slideshowRunId;
+    
     let currentMainPopup: mapboxgl.Popup | null = null;
-
+    let currentActivityIndex = 0;
 
     const showNextChurch = async () => {
-      if (!this.isSlideshowRunning) {
-
+      if (!this.isSlideshowRunning || this.slideshowRunId !== currentRunId) {
         return;
-
       }
 
       if (this.isFlying) {
-
         return;
-
       }
 
       const map = this.mapService.getMap();
-
       if (!map) {
-
         return;
-
       }
 
+      // Gather enabled activities and their orders/intervals
+      const activityKeys = ['chat', 'study', 'website', 'reading'];
+      const enabledActivities = activityKeys.map(key => {
+        let order = 99;
+        let interval = 17; // fallback default
+        
+        const actConfig = this.realtimeService.activities;
+        if (key === 'chat') {
+          order = (actConfig && actConfig.chat && actConfig.chat.order !== undefined) ? actConfig.chat.order : 1;
+          interval = this.chatInterval || 33;
+        } else if (key === 'study') {
+          order = (actConfig && actConfig.study && actConfig.study.order !== undefined) ? actConfig.study.order : 2;
+          interval = this.studyInterval || 4;
+        } else if (key === 'website') {
+          order = (actConfig && actConfig.website && actConfig.website.order !== undefined) ? actConfig.website.order : 3;
+          interval = this.websiteInterval || 89;
+        } else if (key === 'reading') {
+          order = (actConfig && actConfig.reading && actConfig.reading.order !== undefined) ? actConfig.reading.order : 4;
+          interval = this.readingInterval || 15;
+        }
+        return { key, order, interval };
+      });
 
-      const church = this.realtimeService.getNextLiveEvent();
+      // Sort by sequence order index
+      enabledActivities.sort((a, b) => a.order - b.order);
 
-      if (!church) {
+      if (enabledActivities.length === 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (this.slideshowRunId === currentRunId) {
+          await showNextChurch();
+        }
+        return;
+      }
 
-        console.log("Waiting for live events...");
+      const idx = currentActivityIndex % enabledActivities.length;
+      const currentActivity = enabledActivities[idx];
+
+      const keyToNamesMap: { [key: string]: string[] } = {
+        'chat': ['Chat'],
+        'study': ['Bible Learn', 'Bible Study', 'Bible Study Lesson Completed'],
+        'reading': ['Bible Reading Plan', 'Youversion'],
+        'website': ['Website Visitor', 'Bible Word']
+      };
+      const targetNames = keyToNamesMap[currentActivity.key] || [];
+      
+      const groupedChurches = this.groupingService.buildDisplayList(
+        this.realtimeService.churches,
+        4,
+        this.realtimeService.activities
+      );
+
+      const activityChurches = groupedChurches.filter(church => 
+        church && church.activity && targetNames.includes(church.activity) && church.latitude !== 0 && church.longitude !== 0
+      );
+
+      if (activityChurches.length === 0) {
+        // If no events for this activity, skip to the next activity index immediately
+        if (this.slideshowRunId === currentRunId && this.isSlideshowRunning) {
+          currentActivityIndex++;
+          await showNextChurch();
+        }
+        return;
+      }
+
+      let totalTimeLeft = currentActivity.interval;
+      let churchIndex = 0;
+
+      while (totalTimeLeft > 0 && this.isSlideshowRunning && this.slideshowRunId === currentRunId) {
+        const church = activityChurches[churchIndex % activityChurches.length];
+        churchIndex++;
+
+        this.closeMainPopup(currentMainPopup);
+        currentMainPopup = null;
+
+        this.isFlying = true;
+
+        // Wait for the flight transition to complete before showing the card
+        await new Promise<void>(resolve => {
+          let resolved = false;
+          const cleanup = () => {
+            if (!resolved) {
+              resolved = true;
+              map.off('moveend', onMoveEnd);
+              resolve();
+            }
+          };
+          const onMoveEnd = () => {
+            cleanup();
+          };
+          // 3-second safety timeout
+          setTimeout(cleanup, 3000);
+          
+          map.on('moveend', onMoveEnd);
+          this.flyToChurch(church);
+        });
+
+        if (this.slideshowRunId !== currentRunId || !this.isSlideshowRunning) {
+          return;
+        }
+
+        currentMainPopup = this.showMainPopup(map, church);
+
+        // Display card for the min of cardDuration or remaining activity interval
+        const displayDuration = Math.min(this.slideshowDelaySeconds || 17, totalTimeLeft);
+        console.log(`Displaying ${currentActivity.key} card for ${displayDuration} seconds (Order: ${currentActivity.order})`);
+
+        await new Promise<void>(resolve => {
+          this.currentDelayResolve = resolve;
+          this.currentDelayTimer = setTimeout(() => {
+            this.currentDelayTimer = null;
+            this.currentDelayResolve = null;
+            resolve();
+          }, displayDuration * 1000);
+        });
+
+        if (this.slideshowRunId !== currentRunId || !this.isSlideshowRunning) {
+          this.closeMainPopup(currentMainPopup);
+          return;
+        }
+
+        this.closeMainPopup(currentMainPopup);
+        currentMainPopup = null;
+        console.log("MAIN POPUP IMAGE");
+        console.log(church.imageKey);
+        console.log(church.imageIndex);
+
+        this.realtimeService.moveMainPopupToSmallPopup(church);
+
+        // Determine the actual next church in our sequence rotation
+        const getNextChurchInSequence = (): ChurchData | null => {
+          if (totalTimeLeft - displayDuration > 0) {
+            return activityChurches[churchIndex % activityChurches.length];
+          }
+          
+          let nextActIdx = currentActivityIndex + 1;
+          for (let i = 0; i < enabledActivities.length; i++) {
+            const nextAct = enabledActivities[nextActIdx % enabledActivities.length];
+            const nextNames = keyToNamesMap[nextAct.key] || [];
+            const nextChurches = groupedChurches.filter(c => 
+              c && c.activity && nextNames.includes(c.activity) && c.latitude !== 0 && c.longitude !== 0
+            );
+            if (nextChurches.length > 0) {
+              return nextChurches[0];
+            }
+            nextActIdx++;
+          }
+          return null;
+        };
+
+        const nextChurch = getNextChurchInSequence();
+        if (nextChurch && (nextChurch.latitude !== church.latitude || nextChurch.longitude !== church.longitude)) {
+          await this.transitionBetweenCards(
+            [church.longitude, church.latitude],
+            [nextChurch.longitude, nextChurch.latitude],
+            2500
+          );
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
 
         this.isFlying = false;
 
-        await this.waitForLiveEvent();
-
-        await showNextChurch();
-
-        return;
-
+        totalTimeLeft -= displayDuration;
       }
 
-      if (
-        church.latitude === 0 ||
-        church.longitude === 0
-      ) {
-
-        this.isFlying = false;
-
+      // Increment sequence index and show next
+      if (this.slideshowRunId === currentRunId && this.isSlideshowRunning) {
+        currentActivityIndex++;
         await showNextChurch();
-
-        return;
-
       }
-
-      this.closeMainPopup(currentMainPopup);
-      currentMainPopup = null;
-
-      this.isFlying = true;
-
-      // ✅ smooth animation (no jump)
-      // this.map.flyTo({
-      //   center: [church.longitude, church.latitude],
-      //   zoom: 5,
-      //   speed: 1.2,
-      //   curve: 1.2,
-      //   essential: true
-      // });
-      this.flyToChurch(church);
-
-      currentMainPopup = this.showMainPopup(
-
-        map,
-
-        church
-
-      );
-
-      await this.waitForCurrentCard();
-
-      this.closeMainPopup(
-
-        currentMainPopup
-
-      );
-
-      currentMainPopup = null;
-      console.log("MAIN POPUP IMAGE");
-      console.log(church.imageKey);
-      console.log(church.imageIndex);
-
-      this.realtimeService.moveMainPopupToSmallPopup(
-        church
-      );
-
-      await this.transitionToNextChurch(
-
-        church
-
-      );
-
-      this.isFlying = false;
-
-      await showNextChurch();
       return;
-
     };
 
     await showNextChurch();

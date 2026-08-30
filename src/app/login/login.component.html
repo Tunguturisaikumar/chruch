@@ -1,23 +1,66 @@
+<div *ngIf="loading" class="map-loader">
+  <div class="spinner"></div>
+  <p>Loading map...</p>
+</div>
 <div class="login-popup">
+
     <div class="login-header">
+
         <h2>Admin Login</h2>
 
         <button class="close-btn" (click)="closePopup()">
             <i class="fas fa-times"></i>
         </button>
+
     </div>
 
     <div class="mb-3">
+
         <label>Username</label>
-        <input class="form-control" [(ngModel)]="username">
+
+        <input
+            class="form-control"
+            [(ngModel)]="username"
+            #user="ngModel"
+            required>
+
+        <small
+            class="text-danger"
+            *ngIf="submitted && !username">
+
+            Username is required
+
+        </small>
+
     </div>
 
     <div class="mb-3">
+
         <label>Password</label>
-        <input type="password" class="form-control" [(ngModel)]="password">
+
+        <input
+            type="password"
+            class="form-control"
+            [(ngModel)]="password"
+            required>
+
+        <small
+            class="text-danger"
+            *ngIf="submitted && !password">
+
+            Password is required
+
+        </small>
+
     </div>
 
-    <button class="btn btn-primary w-100" (click)="login()">
-        Login
+    <button
+        class="btn btn-primary w-100"
+        [disabled]="loading"
+        (click)="login()">
+
+        {{ loading ? 'Logging in...' : 'Login' }}
+
     </button>
+
 </div>

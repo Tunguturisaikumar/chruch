@@ -97,24 +97,7 @@
 
     </div>
 
-    <!-- Group Count -->
-    <div class="control-card">
 
-      <h3>Group Count</h3>
-
-      <input type="number" class="form-control" [(ngModel)]="tempGroupCount">
-
-      <button class="btn btn-success mt-3" (click)="saveGroupCount()">
-
-        Save
-
-      </button>
-
-      <p class="mt-2">
-        Current : {{ groupCount }}
-      </p>
-
-    </div>
 
 
     <!-- Show Past Records -->
@@ -153,6 +136,102 @@
       <p class="mt-2">
         Current : {{ cardDuration }}
       </p>
+
+    </div>
+
+    <!-- Per-Activity Settings -->
+    <div class="control-card" style="grid-column: 1 / -1; display: flex; flex-direction: column;">
+      <h3 style="border-bottom: 2px solid #0f6f73; padding-bottom: 10px; margin-bottom: 20px;">Per-Activity Settings</h3>
+      
+      <div class="activity-settings-container" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+        
+        <!-- Chat Row -->
+        <div class="activity-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+          <div style="flex: 1; min-width: 150px;">
+            <strong style="color: #0f6f73; font-size: 1.1em;">Chat</strong>
+          </div>
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Group Count:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.chat.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Order:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.chat.order" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+          </div>
+          <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
+            Current: Group Count = {{ activities.chat?.groupCount }}, Order = {{ activities.chat?.order }}
+          </div>
+        </div>
+
+        <!-- Reading Row -->
+        <div class="activity-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+          <div style="flex: 1; min-width: 150px;">
+            <strong style="color: #0f6f73; font-size: 1.1em;">Bible Reading Plan</strong>
+          </div>
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Group Count:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.reading.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Order:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.reading.order" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+          </div>
+          <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
+            Current: Group Count = {{ activities.reading?.groupCount }}, Order = {{ activities.reading?.order }}
+          </div>
+        </div>
+
+        <!-- Study Row -->
+        <div class="activity-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
+          <div style="flex: 1; min-width: 150px;">
+            <strong style="color: #0f6f73; font-size: 1.1em;">Bible Learn (Study)</strong>
+          </div>
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Group Count:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.study.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Order:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.study.order" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+          </div>
+          <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
+            Current: Group Count = {{ activities.study?.groupCount }}, Order = {{ activities.study?.order }}
+          </div>
+        </div>
+
+        <!-- Website Row -->
+        <div class="activity-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding-bottom: 15px;">
+          <div style="flex: 1; min-width: 150px;">
+            <strong style="color: #0f6f73; font-size: 1.1em;">Website Visitor</strong>
+          </div>
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Group Count:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.website.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <label style="margin: 0;">Order:</label>
+              <input type="number" class="form-control" [(ngModel)]="tempActivities.website.order" style="width: 80px; margin: 0; padding: 6px;">
+            </div>
+          </div>
+          <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
+            Current: Group Count = {{ activities.website?.groupCount }}, Order = {{ activities.website?.order }}
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 20px; text-align: right; width: 100%;">
+        <button class="btn btn-success" (click)="saveActivitySettings()" style="padding: 10px 20px; font-size: 1em; border-radius: 8px; cursor: pointer; border: none;">
+          Save Activity Settings
+        </button>
+      </div>
 
     </div>
 
