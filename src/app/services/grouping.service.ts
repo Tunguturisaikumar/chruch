@@ -8,80 +8,92 @@ export class GroupingService {
 
   constructor() { }
 
+  private getActivityKey(activity: string): string {
+    const act = (activity || '').toLowerCase().trim();
+    if (act.includes('chat')) return 'chat';
+    if (act.includes('study') || act.includes('learn')) return 'study';
+    if (act.includes('reading') || act.includes('youversion') || act.includes('plan')) return 'reading';
+    if (act.includes('website') || act.includes('visitor') || act.includes('word')) return 'website';
+    return 'website';
+  }
+
   buildDisplayList(
     churches: ChurchData[],
-    groupBatchSize: number,
+    groupBatchSize: number = 1,
     activities?: any
   ): ChurchData[] {
+    if (!churches || churches.length === 0) {
+      return [];
+    }
 
-    const result = [...churches];
+    const result: (ChurchData | null)[] = churches.map(c => ({ ...c, groupCount: 0 }));
 
-    const groupedActivities = [
-      'Bible Reading Plan',
-      'Website Visitor',
-      'Bible Learn',
-      'Bible Study',
-      'Bible Study Lesson Completed',
-      'Chat'
-    ];
-
-    const activityMap: {
-      [key: string]: number[];
-    } = {};
+    const activityMap: { [key: string]: number[] } = {
+      chat: [],
+      study: [],
+      reading: [],
+      website: []
+    };
 
     churches.forEach((church, index) => {
-      if (
-        church &&
-        church.activity &&
-        groupedActivities.includes(church.activity)
-      ) {
-        if (!activityMap[church.activity]) {
-          activityMap[church.activity] = [];
+      if (church && church.activity) {
+        const actKey = this.getActivityKey(church.activity);
+        if (activityMap[actKey]) {
+          activityMap[actKey].push(index);
         }
-        activityMap[church.activity].push(index);
       }
     });
 
-    Object.keys(activityMap).forEach(activityName => {
-      const indexes = activityMap[activityName];
-      
-      const activityKeyMap: { [key: string]: string } = {
-        'Website Visitor': 'website',
-        'Bible Reading Plan': 'reading',
-        'Bible Learn': 'study',
-        'Bible Study': 'study',
-        'Bible Study Lesson Completed': 'study',
-        'Chat': 'chat'
-      };
-      
-      const actKey = activityKeyMap[activityName] || 'website';
-      
-      const batchSize = (activities && activities[actKey] && typeof activities[actKey].groupCount === 'number')
-        ? activities[actKey].groupCount
-        : 4;
+    Object.keys(activityMap).forEach(actKey => {
+      const indexes = activityMap[actKey];
+      if (!indexes || indexes.length === 0) return;
 
-      for (
-        let i = 0;
-        i < indexes.length;
-        i += batchSize
-      ) {
+      const actObj = activities ? activities[actKey] : null;
+      let rawBatch = 1;
+
+      // Strictly read from settings API only. No UI default grouping > 1.
+      if (actObj && actObj.groupCount !== undefined && actObj.groupCount !== null && actObj.groupCount !== '') {
+        const parsed = Number(actObj.groupCount);
+        if (!isNaN(parsed) && parsed > 1) {
+          rawBatch = Math.floor(parsed);
+        }
+      }
+
+      const batchSize = rawBatch;
+
+      if (batchSize <= 1) {
+        // Group count is 1 (or default): strictly individual records, no grouping, no & other
+        indexes.forEach(idx => {
+          if (result[idx]) {
+            result[idx]!.groupCount = 0;
+          }
+        });
+        return;
+      }
+
+      // Group count > 1 (e.g. 2 -> & 1 other, 100 -> & 99 others)
+      for (let i = 0; i < indexes.length; i += batchSize) {
         const batch = indexes.slice(i, i + batchSize);
 
         if (batch.length > 1) {
           result[batch[0]] = {
             ...churches[batch[0]],
-            groupCount: batch.length - 1
+            groupCount: batchSize - 1
           };
 
           for (let k = 1; k < batch.length; k++) {
-            result[batch[k]] = null as any;
+            result[batch[k]] = null;
           }
+        } else if (batch.length === 1 && result[batch[0]]) {
+          result[batch[0]] = {
+            ...churches[batch[0]],
+            groupCount: batchSize - 1
+          };
         }
       }
     });
 
-    return result.filter(x => x !== null);
-
+    return result.filter((x): x is ChurchData => x !== null);
   }
 
 }

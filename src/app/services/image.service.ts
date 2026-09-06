@@ -310,37 +310,39 @@ private resolveImage(
   imageUrl: string,
   gender: string
 ): Promise<void> {
-
   return new Promise(resolve => {
+    let settled = false;
+
+    const finish = (src: string) => {
+      if (!settled) {
+        settled = true;
+        this.imageCache[cacheKey] = src;
+        resolve();
+      }
+    };
+
+    const fallbackSrc = gender === 'female' ? 'assets/realwomen.jpg' : 'assets/realperson.jpg';
+
+    // 2.5s timeout fallback so preloading never stalls
+    const timer = setTimeout(() => {
+      finish(fallbackSrc);
+    }, 2500);
 
     const img = new Image();
 
     img.onload = () => {
-
-      this.imageCache[cacheKey] = imageUrl;
-
-      resolve();
-
+      clearTimeout(timer);
+      finish(imageUrl);
     };
 
     img.onerror = () => {
-
+      clearTimeout(timer);
       console.warn(`Failed to load image from GCP bucket: ${imageUrl}. Falling back to default.`);
-
-      this.imageCache[cacheKey] =
-
-        gender === 'female'
-          ? 'assets/realwomen.jpg'
-          : 'assets/realperson.jpg';
-
-      resolve();
-
+      finish(fallbackSrc);
     };
 
     img.src = imageUrl;
-
   });
-
 }
 
   private getNonRepeatingRandomIndex(

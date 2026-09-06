@@ -23,7 +23,10 @@
 
       <h3>Chat Interval</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempChatInterval">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="number" class="form-control" [(ngModel)]="tempChatInterval" style="width: 100px; margin: 0;">
+        <span style="font-weight: 600; color: #555;">secs</span>
+      </div>
 
       <button class="btn btn-success mt-3" (click)="saveChatInterval()">
 
@@ -32,18 +35,21 @@
       </button>
 
       <p class="mt-2">
-        Current : {{ chatInterval }}
+        Current : {{ chatInterval }} secs
       </p>
 
     </div>
 
 
-    <!-- Reading Interval -->
+    <!-- Bible Reading Plan Interval -->
     <div class="control-card">
 
-      <h3>Reading Interval</h3>
+      <h3>Bible Reading Plan Interval</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempReadingInterval">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="number" class="form-control" [(ngModel)]="tempReadingInterval" style="width: 100px; margin: 0;">
+        <span style="font-weight: 600; color: #555;">secs</span>
+      </div>
 
       <button class="btn btn-success mt-3" (click)="saveReadingInterval()">
 
@@ -52,18 +58,21 @@
       </button>
 
       <p class="mt-2">
-        Current : {{ readingInterval }}
+        Current : {{ readingInterval }} secs
       </p>
 
     </div>
 
 
-    <!-- Study Interval -->
+    <!-- Bible Study Lesson Completed Interval -->
     <div class="control-card">
 
-      <h3>Study Interval</h3>
+      <h3>Bible Study Lesson Completed Interval</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempStudyInterval">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="number" class="form-control" [(ngModel)]="tempStudyInterval" style="width: 100px; margin: 0;">
+        <span style="font-weight: 600; color: #555;">secs</span>
+      </div>
 
       <button class="btn btn-success mt-3" (click)="saveStudyInterval()">
 
@@ -72,18 +81,21 @@
       </button>
 
       <p class="mt-2">
-        Current : {{ studyInterval }}
+        Current : {{ studyInterval }} secs
       </p>
 
     </div>
 
 
-    <!-- Website Interval -->
+    <!-- Website Visitor Interval -->
     <div class="control-card">
 
-      <h3>Website Interval</h3>
+      <h3>Website Visitor Interval</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempWebsiteInterval">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="number" class="form-control" [(ngModel)]="tempWebsiteInterval" style="width: 100px; margin: 0;">
+        <span style="font-weight: 600; color: #555;">secs</span>
+      </div>
 
       <button class="btn btn-success mt-3" (click)="saveWebsiteInterval()">
 
@@ -92,7 +104,7 @@
       </button>
 
       <p class="mt-2">
-        Current : {{ websiteInterval }}
+        Current : {{ websiteInterval }} secs
       </p>
 
     </div>
@@ -105,7 +117,7 @@
 
       <h3>Show Past Records</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempShowPastRecords">
+      <input type="number" class="form-control" [(ngModel)]="tempShowPastRecords" style="width: 100px;">
 
       <button class="btn btn-success mt-3" (click)="saveShowPastRecords()">
 
@@ -125,7 +137,10 @@
 
       <h3>Card Duration</h3>
 
-      <input type="number" class="form-control" [(ngModel)]="tempCardDuration">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <input type="number" class="form-control" [(ngModel)]="tempCardDuration" style="width: 100px; margin: 0;">
+        <span style="font-weight: 600; color: #555;">secs</span>
+      </div>
 
       <button class="btn btn-success mt-3" (click)="saveCardDuration()">
 
@@ -134,7 +149,7 @@
       </button>
 
       <p class="mt-2">
-        Current : {{ cardDuration }}
+        Current : {{ cardDuration }} secs
       </p>
 
     </div>
@@ -150,14 +165,21 @@
           <div style="flex: 1; min-width: 150px;">
             <strong style="color: #0f6f73; font-size: 1.1em;">Chat</strong>
           </div>
-          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Group Count:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.chat.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+          <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Group Count:</label>
+                <input type="number" min="1" max="100" class="form-control" [style.border-color]="isGroupCountInvalid('chat') ? '#dc3545' : ''" [(ngModel)]="tempActivities.chat.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isGroupCountInvalid('chat')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 100</small>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Order:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.chat.order" style="width: 80px; margin: 0; padding: 6px;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Order:</label>
+                <input type="number" min="1" max="4" class="form-control" [style.border-color]="(isOrderInvalid('chat') || hasDuplicateOrder('chat')) ? '#dc3545' : ''" [(ngModel)]="tempActivities.chat.order" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isOrderInvalid('chat')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 4</small>
+              <small *ngIf="!isOrderInvalid('chat') && hasDuplicateOrder('chat')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Order must be unique</small>
             </div>
           </div>
           <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
@@ -170,14 +192,21 @@
           <div style="flex: 1; min-width: 150px;">
             <strong style="color: #0f6f73; font-size: 1.1em;">Bible Reading Plan</strong>
           </div>
-          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Group Count:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.reading.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+          <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Group Count:</label>
+                <input type="number" min="1" max="100" class="form-control" [style.border-color]="isGroupCountInvalid('reading') ? '#dc3545' : ''" [(ngModel)]="tempActivities.reading.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isGroupCountInvalid('reading')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 100</small>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Order:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.reading.order" style="width: 80px; margin: 0; padding: 6px;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Order:</label>
+                <input type="number" min="1" max="4" class="form-control" [style.border-color]="(isOrderInvalid('reading') || hasDuplicateOrder('reading')) ? '#dc3545' : ''" [(ngModel)]="tempActivities.reading.order" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isOrderInvalid('reading')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 4</small>
+              <small *ngIf="!isOrderInvalid('reading') && hasDuplicateOrder('reading')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Order must be unique</small>
             </div>
           </div>
           <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
@@ -188,16 +217,23 @@
         <!-- Study Row -->
         <div class="activity-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
           <div style="flex: 1; min-width: 150px;">
-            <strong style="color: #0f6f73; font-size: 1.1em;">Bible Learn (Study)</strong>
+            <strong style="color: #0f6f73; font-size: 1.1em;">Bible Study Lesson Completed</strong>
           </div>
-          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Group Count:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.study.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+          <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Group Count:</label>
+                <input type="number" min="1" max="100" class="form-control" [style.border-color]="isGroupCountInvalid('study') ? '#dc3545' : ''" [(ngModel)]="tempActivities.study.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isGroupCountInvalid('study')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 100</small>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Order:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.study.order" style="width: 80px; margin: 0; padding: 6px;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Order:</label>
+                <input type="number" min="1" max="4" class="form-control" [style.border-color]="(isOrderInvalid('study') || hasDuplicateOrder('study')) ? '#dc3545' : ''" [(ngModel)]="tempActivities.study.order" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isOrderInvalid('study')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 4</small>
+              <small *ngIf="!isOrderInvalid('study') && hasDuplicateOrder('study')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Order must be unique</small>
             </div>
           </div>
           <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">
@@ -210,14 +246,21 @@
           <div style="flex: 1; min-width: 150px;">
             <strong style="color: #0f6f73; font-size: 1.1em;">Website Visitor</strong>
           </div>
-          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Group Count:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.website.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+          <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Group Count:</label>
+                <input type="number" min="1" max="100" class="form-control" [style.border-color]="isGroupCountInvalid('website') ? '#dc3545' : ''" [(ngModel)]="tempActivities.website.groupCount" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isGroupCountInvalid('website')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 100</small>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <label style="margin: 0;">Order:</label>
-              <input type="number" class="form-control" [(ngModel)]="tempActivities.website.order" style="width: 80px; margin: 0; padding: 6px;">
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0;">Order:</label>
+                <input type="number" min="1" max="4" class="form-control" [style.border-color]="(isOrderInvalid('website') || hasDuplicateOrder('website')) ? '#dc3545' : ''" [(ngModel)]="tempActivities.website.order" style="width: 80px; margin: 0; padding: 6px;">
+              </div>
+              <small *ngIf="isOrderInvalid('website')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Must be 1 - 4</small>
+              <small *ngIf="!isOrderInvalid('website') && hasDuplicateOrder('website')" style="color: #dc3545; font-size: 0.75rem; margin-top: 3px;">Order must be unique</small>
             </div>
           </div>
           <div style="font-size: 0.9em; color: #666; min-width: 200px; text-align: right;">

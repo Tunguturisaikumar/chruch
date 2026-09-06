@@ -2,10 +2,7 @@ import { Component } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-
-import { NgxSpinnerService } from 'ngx-spinner';
 import { ToastrService } from 'ngx-toastr';
-
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -20,21 +17,26 @@ export class LoginComponent {
 
   loading = false;
   submitted = false;
+  showPassword = false;
 
   constructor(
     private dialogRef: MatDialogRef<LoginComponent>,
     private router: Router,
     private auth: AuthService,
-    private spinner: NgxSpinnerService,
     private toastr: ToastrService
   ) {}
 
-  closePopup() {
-    this.dialogRef.close();
+  togglePasswordVisibility(): void {
+    this.showPassword = !this.showPassword;
   }
 
-  login() {
+  closePopup(): void {
+    if (!this.loading) {
+      this.dialogRef.close();
+    }
+  }
 
+  login(): void {
     this.submitted = true;
 
     if (!this.username.trim() || !this.password.trim()) {
@@ -42,7 +44,6 @@ export class LoginComponent {
     }
 
     this.loading = true;
-    this.spinner.show();
 
     this.auth.login({
       username: this.username,
@@ -51,35 +52,23 @@ export class LoginComponent {
     .pipe(
       finalize(() => {
         this.loading = false;
-        this.spinner.hide();
       })
     )
     .subscribe({
-
       next: () => {
-
         this.toastr.success(
           'Login Successful',
           'Success'
         );
-
         this.dialogRef.close();
-
         this.router.navigate(['/dashboard']);
-
       },
-
       error: () => {
-
         this.toastr.error(
           'Invalid Username or Password',
           'Login Failed'
         );
-
       }
-
     });
-
   }
-
 }

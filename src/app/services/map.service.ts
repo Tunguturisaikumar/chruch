@@ -133,28 +133,28 @@ export class MapService {
         // ---------------------------------------------
 
         this.map.on(
-
             'style.load',
-
             () => this.map.setFog({})
-
         );
 
         // ---------------------------------------------
 
-        this.map.on(
-
-            'load',
-
-            () => {
-
+        let loadedFired = false;
+        const fireOnLoad = () => {
+            if (!loadedFired) {
+                loadedFired = true;
                 this.loading = false;
-
                 onLoad();
-
             }
+        };
 
-        );
+        if (this.map.loaded()) {
+            fireOnLoad();
+        } else {
+            this.map.once('load', fireOnLoad);
+            // Safety timeout in case load event is delayed by external tile servers
+            setTimeout(fireOnLoad, 4000);
+        }
 
         // ---------------------------------------------
 
@@ -349,26 +349,21 @@ export class MapService {
                 );
 
         const marker =
-
-            new mapboxgl.Marker(
-
-                element
-
-            )
-
+            new mapboxgl.Marker({
+                element: element
+            })
                 .setLngLat([
-
                     church.longitude,
-
                     church.latitude
+                ]);
 
-                ])
-
-                .addTo(
-
-                    this.map
-
-                );
+        try {
+            if (this.map && typeof (this.map as any).getCanvasContainer === 'function') {
+                marker.addTo(this.map);
+            }
+        } catch (e) {
+            console.warn('Could not add marker to map:', e);
+        }
 
         // ------------------------------------------
 
@@ -663,6 +658,8 @@ export class MapService {
 
             curve: 1.2,
 
+            offset: [0, 130],
+
             essential: true
 
         });
@@ -697,31 +694,23 @@ export class MapService {
     }
 
     // =====================================================
-    // REMOVE MAP
-    // =====================================================
-
     removeMap(): void {
-
         try {
-
             this.clearMarkers();
-
             if (this.map) {
-
                 this.map.remove();
-
             }
-
         }
         catch (error) {
-
             console.error(
                 'Failed to remove map.',
                 error
             );
-
         }
-
+        finally {
+            (this.map as any) = null;
+            this.loading = true;
+        }
     }
 
     // =====================================================
@@ -729,20 +718,13 @@ export class MapService {
     // =====================================================
 
     clearMarkers(): void {
-
         this.churchMarkers.forEach(marker => {
-
             try {
-
                 marker.remove();
-
             }
             catch { }
-
         });
-
         this.churchMarkers = [];
-
     }
 
     // =====================================================
@@ -750,13 +732,9 @@ export class MapService {
     // =====================================================
 
     destroy(): void {
-
         this.stopAnimation();
-
         this.clearMarkers();
-
         this.removeMap();
-
     }
 
     // =====================================================
@@ -764,15 +742,11 @@ export class MapService {
     // =====================================================
 
     getMap(): mapboxgl.Map {
-
         return this.map;
-
     }
 
     hasMap(): boolean {
-
-        return !!this.map;
-
+        return !!this.map && typeof (this.map as any).getCanvas === 'function';
     }
 
     getZoom(): number {

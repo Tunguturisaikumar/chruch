@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, NgZone, ChangeDetectorRef } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { HttpClient } from '@angular/common/http';
 import { countryCoordinates } from '../coordinates';
@@ -12,19 +12,7 @@ import { ImageService } from '../services/image.service';
 import { RealtimeService } from '../services/realtime.service';
 import { WebsocketService } from '../services/websocket.service';
 import { GroupingService } from '../services/grouping.service';
-
-interface ChurchData {
-  gender: string;
-  country: string;
-  language: string;
-  activity: string;
-  latitude: number;
-  longitude: number;
-
-  imageIndex?: number;
-  imageKey?: string;
-  groupCount?: number;
-}
+import { ChurchData } from '../models/church-data';
 
 interface CityData {
   city: string;
@@ -100,13 +88,11 @@ const translatedQuotes: { [lang: string]: string } = {
   Vietnamese:
     "(Vietnamese) “Vì Đức Chúa Trời đã yêu thương thế gian đến nỗi ban Con Một của Ngài, hầu cho hễ ai tin Con ấy không bị hư mất mà được sự sống đời đời.” — Giăng 3:16",
 };
-
 @Component({
   selector: 'app-globe-view',
   templateUrl: './globe-view.component.html',
   styleUrls: ['./globe-view.component.css']
 })
-
 export class GlobeViewComponent implements OnInit, OnDestroy {
   churches: ChurchData[] = [];
   cities: CityData[] = [];
@@ -128,16 +114,18 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   private currentDelayResolve: (() => void) | null = null;
   showPastRecords: number = 20;
   tempMaxSmallPopups: number = 20;
-  groupBatchSize: number = 4;
-  tempGroupBatchSize: number = 4;
+  groupBatchSize: number = 1;
+  tempGroupBatchSize: number = 1;
   private isSlideshowRunning = false;
   private slideshowRunId = 0;
   chatInterval!: number;
   readingInterval!: number;
   studyInterval!: number;
   websiteInterval!: number;
+  private activityHistoryPointers: { [key: string]: number } = { chat: 0, study: 0, website: 0, reading: 0 };
   private latestPopupSubscription?: Subscription;
   private websocketSubscription?: Subscription;
+  private settingsRefreshInterval?: any;
 
   toggleMenu(event: MouseEvent) {
     event.stopPropagation();
@@ -164,26 +152,19 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     };
   }
 
-  constructor(private ngZone: NgZone,
-
+  constructor(
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef,
     private realtimeService: RealtimeService,
-
     private websocketService: WebsocketService,
-
     private popupService: PopupService,
-
     private imageService: ImageService,
-
     private mapService: MapService,
-
     private auth: AuthService,
-
     private dialog: MatDialog,
-
     private http: HttpClient,
     private groupingService: GroupingService,
   ) { }
-
 
   openLoginPopup() {
     this.dialog.open(LoginComponent, {
@@ -193,37 +174,69 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadSettings();
     this.startQuoteRotation();
     document.addEventListener('click', this.outsideClickHandler);
 
+    // 1. Initialize Map immediately so globe renders and loading spinner dismisses in <1s
+    this.initializeMap();
+
+    // 2. Load settings and church data in parallel
+    this.loadSettings();
+    this.loadChurchData();
+
+    // 3. Background periodic settings sync (every 10s)
+    this.settingsRefreshInterval = setInterval(() => {
+      this.loadSettings();
+    }, 10000);
+
+    // 4. Background load worldcities.json without blocking UI
     this.http.get<CityData[]>('assets/worldcities.json').subscribe({
       next: (citiesData) => {
-        this.cities = citiesData;
-        this.loadChurchData();
+        this.cities = citiesData || [];
       },
-      error: (err) => {
-        // console.error('Failed to load cities.json', err);
-        this.loadChurchData();
+      error: () => {
+        this.cities = [];
       }
     });
   }
 
-  loadSettings(): void {
+  loadSettings(onComplete?: () => void): void {
     this.auth.getSettings().subscribe({
       next: (settings) => {
-        this.showPastRecords = settings.showPastRecords;
-        this.slideshowDelaySeconds = settings.cardDuration;
-        this.chatInterval = settings.chatInterval;
-        this.readingInterval = settings.readingInterval;
-        this.studyInterval = settings.studyInterval;
-        this.websiteInterval = settings.websiteInterval;
-        if (settings.activities) {
-          this.realtimeService.setActivities(settings.activities);
+        if (settings) {
+          if (settings.showPastRecords !== undefined && settings.showPastRecords !== null) {
+            this.showPastRecords = Number(settings.showPastRecords) || 20;
+            this.tempMaxSmallPopups = this.showPastRecords;
+            this.realtimeService.setShowPastRecords(this.showPastRecords);
+            const halfA = Math.floor(this.showPastRecords / 2);
+            const halfB = this.showPastRecords - halfA;
+            this.popupService.enforceGroupLimits(halfA, halfB);
+          }
+          if (settings.cardDuration !== undefined && settings.cardDuration !== null) {
+            this.slideshowDelaySeconds = Number(settings.cardDuration) || 17;
+            this.tempSlideshowInput = this.slideshowDelaySeconds;
+          }
+          this.chatInterval = settings.chatInterval;
+          this.readingInterval = settings.readingInterval;
+          this.studyInterval = settings.studyInterval;
+          this.websiteInterval = settings.websiteInterval;
+          if (settings.activities) {
+            let acts = settings.activities;
+            if (typeof acts === 'string') {
+              try { acts = JSON.parse(acts); } catch (e) { }
+            }
+            this.realtimeService.setActivities(acts);
+          }
+        }
+        if (onComplete) {
+          onComplete();
         }
       },
       error: (err) => {
         console.error('Failed to load settings', err);
+        if (onComplete) {
+          onComplete();
+        }
       }
     });
   }
@@ -246,120 +259,133 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
   }
 
+  applyMaxSmallPopups(): void {
+    const v = Number(this.tempMaxSmallPopups);
 
+    const clamped = Number.isFinite(v)
+      ? Math.max(5, Math.min(500, Math.floor(v)))
+      : 5;
 
-  private restartSlideshow(): void {
+    this.showPastRecords = clamped;
+    this.tempMaxSmallPopups = clamped;
 
-    this.stopSlideshow();
+    this.realtimeService.setShowPastRecords(this.showPastRecords);
 
-    this.popupService.clearAll();
+    this.realtimeService.smallPopupChurches.forEach(church => {
+      this.addSmallPopup(church);
+    });
 
-    this.showChurches();
-
-    setTimeout(() => {
-
-      this.startChurchSlideshow();
-
-    }, 100);
-
+    const halfA = Math.floor(this.showPastRecords / 2);
+    const halfB = this.showPastRecords - halfA;
+    this.popupService.enforceGroupLimits(halfA, halfB);
   }
 
   private loadChurchData(): void {
-
     this.realtimeService.getHistory().subscribe({
+      next: (data) => {
+        try {
+          const history = this.assignCityCoordinates(data || []);
+          this.imageService.assignImagesToChurches(history);
+          this.imageService.preloadImages(history).catch(e => console.warn('Image preload:', e));
 
-      next: async (data) => {
+          this.realtimeService.setHistory(history);
+          this.churches = this.realtimeService.churches;
 
-        const history = this.assignCityCoordinates(data);
-
-        this.imageService.assignImagesToChurches(history);
-
-        await this.imageService.preloadImages(history);
-
-        // Keep ALL history
-        this.realtimeService.setHistory(history);
-
-        // Component copy (optional)
-        this.churches = this.realtimeService.churches;
-
-        this.initializeMap();
-
-        this.initializeRealtime();
-
+          if (this.mapService.isLoaded) {
+            this.showChurches();
+            this.realtimeService.smallPopupChurches.forEach(church => {
+              this.addSmallPopup(church);
+            });
+            this.startChurchSlideshow();
+          }
+        } catch (e) {
+          console.error('Error processing history data:', e);
+        } finally {
+          this.initializeRealtime();
+        }
       },
-
       error: (err) => {
-
-        console.error(err);
-
+        console.error('Error loading history data:', err);
+        this.initializeRealtime();
       }
-
     });
-
   }
 
   private initializeRealtime(): void {
+    if (this.websocketSubscription) {
+      this.websocketSubscription.unsubscribe();
+    }
 
     this.websocketSubscription =
       this.websocketService.events$
-        .subscribe(async event => {
+        .subscribe(event => {
+          this.ngZone.run(() => {
+            const updated = this.assignCityCoordinates([event])[0];
+            this.imageService.assignImagesToChurches([updated]);
+            this.imageService.preloadImages([updated]).catch(e => console.warn(e));
 
-          const updated =
-            this.assignCityCoordinates([event])[0];
-
-          // Assign image index
-          this.imageService.assignImagesToChurches([updated]);
-
-          // Wait until bucket image is loaded
-          await this.imageService.preloadImages([updated]);
-
-          console.log(
-            "Image before queue:",
-            this.imageService.getImageForChurch(updated)
-          );
-          this.realtimeService.addLiveEvent(updated);
-
+            console.log(
+              "Image before queue:",
+              this.imageService.getImageForChurch(updated)
+            );
+            this.realtimeService.addLiveEvent(updated);
+          });
         });
 
     this.websocketService.connect();
-
   }
 
   private assignCityCoordinates(data: ChurchData[]): ChurchData[] {
     const updated: ChurchData[] = [];
 
     data.forEach(church => {
-      const citiesInCountry = this.cities.filter(
-        c =>
-          c?.country?.toLowerCase?.() &&
-          church?.country?.toLowerCase?.() &&
-          c.country.toLowerCase() === church.country.toLowerCase()
-      );
-
-
-      if (citiesInCountry.length > 0) {
-        const randomCity = citiesInCountry[Math.floor(Math.random() * citiesInCountry.length)];
+      // 1. If valid coordinates are provided by backend, use them directly
+      const lat = Number(church.latitude);
+      const lng = Number(church.longitude);
+      if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
         updated.push({
           ...church,
-          latitude: randomCity.lat,
-          longitude: randomCity.lng
+          latitude: lat,
+          longitude: lng,
+          groupCount: 0
         });
-      } else {
-        const countryMatch = countryCoordinates.find(c => {
-          const countryName = c?.name?.toLowerCase?.();
-          const churchCountry = church?.country?.toLowerCase?.();
-          return countryName && churchCountry && countryName === churchCountry;
-        });
+        return;
+      }
 
-        if (countryMatch) {
+      // 2. If cities data is available, match by city/country
+      const churchCountry = (church?.country || '').toLowerCase().trim();
+      if (this.cities && this.cities.length > 0) {
+        const citiesInCountry = this.cities.filter(
+          c => (c?.country || '').toLowerCase().trim() === churchCountry
+        );
+
+        if (citiesInCountry.length > 0) {
+          const randomCity = citiesInCountry[Math.floor(Math.random() * citiesInCountry.length)];
           updated.push({
             ...church,
-            latitude: countryMatch.latitude,
-            longitude: countryMatch.longitude
+            latitude: randomCity.lat,
+            longitude: randomCity.lng,
+            groupCount: 0
           });
-        } else {
-          updated.push({ ...church, latitude: 0, longitude: 0 });
+          return;
         }
+      }
+
+      // 3. Fallback to exact countryCoordinates lookup
+      const countryMatch = countryCoordinates.find(c => {
+        const name = (c?.name || '').toLowerCase().trim();
+        return name === churchCountry || (c.alpha2 && c.alpha2.toLowerCase() === churchCountry) || (c.alpha3 && c.alpha3.toLowerCase() === churchCountry);
+      });
+
+      if (countryMatch) {
+        updated.push({
+          ...church,
+          latitude: countryMatch.latitude,
+          longitude: countryMatch.longitude,
+          groupCount: 0
+        });
+      } else {
+        updated.push({ ...church, latitude: 0, longitude: 0, groupCount: 0 });
       }
     });
 
@@ -367,41 +393,29 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   initializeMap(): void {
-
     this.mapService.initializeMap(
-
       () => {
-
-        this.showChurches();
-        this.initializeSmallPopupListener();
-        this.realtimeService.smallPopupChurches.forEach(church => {
-
-          this.addSmallPopup(church);
-
+        this.ngZone.run(() => {
+          this.loading = false;
+          this.cdr.detectChanges();
         });
-        this.startChurchSlideshow();
-
-        this.loading = false;
-
-      },
-
-      (zoom) => {
-
-        if (zoom >= 5) {
-
+        if (this.churches && this.churches.length > 0) {
           this.showChurches();
-
+          this.initializeSmallPopupListener();
+          this.realtimeService.smallPopupChurches.forEach(church => {
+            this.addSmallPopup(church);
+          });
+          this.startChurchSlideshow();
         }
-        else {
-
+      },
+      (zoom) => {
+        if (zoom >= 5) {
+          this.showChurches();
+        } else {
           this.hideChurches();
-
         }
-
       }
-
     );
-
   }
 
   private transitionBetweenCards(
@@ -409,7 +423,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     toLngLat: [number, number],
     transitionDurationMs: number = 2000
   ): Promise<void> {
-
     const map = this.mapService.getMap();
 
     if (!map) {
@@ -417,7 +430,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
 
     return new Promise(resolve => {
-
       this.isMainPopupActive = false;
       const hadMarkers = this.mapService.markers && this.mapService.markers.length > 0;
       if (hadMarkers) this.hideChurches();
@@ -426,10 +438,12 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
       this.ngZone.runOutsideAngular(() => {
         const startTime = performance.now();
+        const startZoom = typeof map.getZoom === 'function' ? map.getZoom() : 5;
+        const targetZoom = 5;
 
         const transitionFrame = (time: number) => {
           const elapsed = time - startTime;
-          const progress = Math.min(elapsed / transitionDurationMs, 1); // 0 to 1
+          const progress = Math.min(elapsed / transitionDurationMs, 1);
 
           let currentLng: number;
           let currentLat: number;
@@ -439,7 +453,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
             const phaseProgress = progress / 0.33;
             currentLng = fromLngLat[0];
             currentLat = fromLngLat[1];
-            currentZoom = 5 - (5 - 1.5) * phaseProgress;
+            currentZoom = startZoom - (startZoom - 1.5) * phaseProgress;
           } else if (progress < 0.66) {
             const phaseProgress = (progress - 0.33) / 0.33;
             currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
@@ -449,7 +463,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
             const phaseProgress = (progress - 0.66) / 0.34;
             currentLng = toLngLat[0];
             currentLat = toLngLat[1];
-            currentZoom = 1.5 + (5 - 1.5) * phaseProgress;
+            currentZoom = 1.5 + (targetZoom - 1.5) * phaseProgress;
           }
 
           map.jumpTo({
@@ -478,175 +492,52 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     });
   }
 
-  applyMaxSmallPopups(): void {
-    const v = Number(this.tempMaxSmallPopups);
-
-    const clamped = Number.isFinite(v)
-      ? Math.max(5, Math.min(500, Math.floor(v)))
-      : 5;
-
-    this.showPastRecords = clamped;
-    this.tempMaxSmallPopups = clamped;
-
-    this.popupService.enforcePopupLimit(
-      this.showPastRecords
-    );
-  }
-
-  private buildPopupHtml(
-    church: ChurchData
-  ): string {
-
-    if (
-      church.groupCount &&
-      church.groupCount > 0
-    ) {
-
-      return this.popupService.buildPopupCardGrouped(
-        church,
-        church.groupCount
-      );
-
+  private buildPopupHtml(church: ChurchData): string {
+    if (church && church.groupCount && church.groupCount > 0) {
+      return this.popupService.buildPopupCardGrouped(church, church.groupCount);
     }
-
-    return this.popupService.buildPopupCard(
-      church
-    );
-
+    return this.popupService.buildPopupCard(church);
   }
 
-  private showMainPopup(
-    map: mapboxgl.Map,
-    church: ChurchData
-  ): mapboxgl.Popup {
-
+  private showMainPopup(map: mapboxgl.Map, church: ChurchData): mapboxgl.Popup {
     const popup = new mapboxgl.Popup({
-
       offset: 25,
-
+      anchor: 'bottom',
       closeOnClick: false,
-
       className: 'main-popup'
-
     })
       .setHTML(this.buildPopupHtml(church))
-      .setLngLat([
-
-        church.longitude,
-
-        church.latitude
-
-      ])
+      .setLngLat([church.longitude, church.latitude])
       .addTo(map);
 
     this.isMainPopupActive = true;
-
     return popup;
-
   }
 
   private waitForCurrentCard(): Promise<void> {
-
     return new Promise<void>((resolve) => {
-
       this.currentDelayResolve = resolve;
-
       this.currentDelayTimer = setTimeout(
-
         resolve,
-
         this.slideshowDelaySeconds * 1000
-
       );
-
     });
-
   }
 
-  private closeMainPopup(
-
-    popup: mapboxgl.Popup | null
-
-  ): void {
-
+  private closeMainPopup(popup: mapboxgl.Popup | null): void {
     if (!popup) {
-
       return;
-
     }
-
     popup.remove();
-
     this.isMainPopupActive = false;
-
   }
 
-  private flyToChurch(
-
-    church: ChurchData
-
-  ): void {
-
+  private flyToChurch(church: ChurchData): void {
     this.mapService.flyTo(
-
       church.longitude,
-
       church.latitude,
-
       5
-
     );
-
-  }
-
-  private async transitionToNextChurch(
-
-    current: ChurchData
-
-  ): Promise<void> {
-
-    const next =
-
-      this.realtimeService.liveQueue[0];
-
-    if (!next) {
-
-      return;
-
-    }
-
-    await this.transitionBetweenCards(
-
-      [
-
-        current.longitude,
-
-        current.latitude
-
-      ],
-
-      [
-
-        next.longitude,
-
-        next.latitude
-
-      ],
-
-      2500
-
-    );
-
-  }
-
-  private waitForLiveEvent(): Promise<void> {
-
-    return new Promise(resolve =>
-
-      setTimeout(resolve, 1000)
-
-    );
-
   }
 
   private async startChurchSlideshow(): Promise<void> {
@@ -665,13 +556,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     
     let currentMainPopup: mapboxgl.Popup | null = null;
     let currentActivityIndex = 0;
+    let lastDisplayedChurch: ChurchData | null = null;
 
     const showNextChurch = async () => {
       if (!this.isSlideshowRunning || this.slideshowRunId !== currentRunId) {
-        return;
-      }
-
-      if (this.isFlying) {
         return;
       }
 
@@ -680,11 +568,10 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Gather enabled activities and their orders/intervals
       const activityKeys = ['chat', 'study', 'website', 'reading'];
       const enabledActivities = activityKeys.map(key => {
         let order = 99;
-        let interval = 17; // fallback default
+        let interval = 17;
         
         const actConfig = this.realtimeService.activities;
         if (key === 'chat') {
@@ -703,7 +590,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         return { key, order, interval };
       });
 
-      // Sort by sequence order index
       enabledActivities.sort((a, b) => a.order - b.order);
 
       if (enabledActivities.length === 0) {
@@ -727,7 +613,7 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       
       const groupedChurches = this.groupingService.buildDisplayList(
         this.realtimeService.churches,
-        4,
+        1,
         this.realtimeService.activities
       );
 
@@ -736,7 +622,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       );
 
       if (activityChurches.length === 0) {
-        // If no events for this activity, skip to the next activity index immediately
         if (this.slideshowRunId === currentRunId && this.isSlideshowRunning) {
           currentActivityIndex++;
           await showNextChurch();
@@ -745,36 +630,60 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
       }
 
       let totalTimeLeft = currentActivity.interval;
-      let churchIndex = 0;
 
       while (totalTimeLeft > 0 && this.isSlideshowRunning && this.slideshowRunId === currentRunId) {
-        const church = activityChurches[churchIndex % activityChurches.length];
-        churchIndex++;
+        // 1. Check if a live event is available in the queue for this activity
+        const liveEvent = this.realtimeService.getNextLiveEventForActivity(currentActivity.key);
+        let church: ChurchData;
+        let isLive = false;
+
+        const actConfig = this.realtimeService.activities?.[currentActivity.key];
+        let configuredGroupCount = 1;
+        if (actConfig && actConfig.groupCount !== undefined && actConfig.groupCount !== null && actConfig.groupCount !== '') {
+          const parsed = Number(actConfig.groupCount);
+          if (!isNaN(parsed) && parsed > 1) {
+            configuredGroupCount = Math.floor(parsed);
+          }
+        }
+
+        if (liveEvent && liveEvent.latitude !== 0 && liveEvent.longitude !== 0) {
+          church = {
+            ...liveEvent,
+            groupCount: configuredGroupCount > 1 ? (configuredGroupCount - 1) : 0
+          };
+          isLive = true;
+          console.log(
+            `[LIVE EVENT] Displaying live "${church.activity}" (Source: ${church.source || 'WebSocket'}, Country: ${church.country}, GroupCount: ${church.groupCount})`
+          );
+        } else {
+          // 2. Fallback to past BigQuery / History records in sequential round-robin
+          const pointer = this.activityHistoryPointers[currentActivity.key] || 0;
+          const rawChurch = activityChurches[pointer % activityChurches.length];
+          church = {
+            ...rawChurch,
+            groupCount: configuredGroupCount > 1 ? (configuredGroupCount - 1) : 0
+          };
+          this.activityHistoryPointers[currentActivity.key] = pointer + 1;
+          console.log(
+            `[PAST RECORD] No live events in queue for "${currentActivity.key}". Displaying historical record #${(pointer % activityChurches.length) + 1} of ${activityChurches.length} (Activity: "${church.activity}", Country: ${church.country}, Source: ${church.source || 'BigQuery'}, GroupCount: ${church.groupCount})`
+          );
+        }
 
         this.closeMainPopup(currentMainPopup);
         currentMainPopup = null;
 
-        this.isFlying = true;
+        // Perform smooth 3D globe transition (zoom out -> rotate globe -> zoom in)
+        const fromCoord: [number, number] = lastDisplayedChurch
+          ? [lastDisplayedChurch.longitude, lastDisplayedChurch.latitude]
+          : [(map.getCenter()?.lng || 0), (map.getCenter()?.lat || 20)];
 
-        // Wait for the flight transition to complete before showing the card
-        await new Promise<void>(resolve => {
-          let resolved = false;
-          const cleanup = () => {
-            if (!resolved) {
-              resolved = true;
-              map.off('moveend', onMoveEnd);
-              resolve();
-            }
-          };
-          const onMoveEnd = () => {
-            cleanup();
-          };
-          // 3-second safety timeout
-          setTimeout(cleanup, 3000);
-          
-          map.on('moveend', onMoveEnd);
-          this.flyToChurch(church);
-        });
+        this.isFlying = true;
+        await this.transitionBetweenCards(
+          fromCoord,
+          [church.longitude, church.latitude],
+          2000
+        );
+        this.isFlying = false;
 
         if (this.slideshowRunId !== currentRunId || !this.isSlideshowRunning) {
           return;
@@ -782,9 +691,8 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
         currentMainPopup = this.showMainPopup(map, church);
 
-        // Display card for the min of cardDuration or remaining activity interval
         const displayDuration = Math.min(this.slideshowDelaySeconds || 17, totalTimeLeft);
-        console.log(`Displaying ${currentActivity.key} card for ${displayDuration} seconds (Order: ${currentActivity.order})`);
+        console.log(`⏱️ Displaying ${currentActivity.key} card for ${displayDuration}s (Order: ${currentActivity.order}, Remaining Activity Time: ${totalTimeLeft - displayDuration}s)`);
 
         await new Promise<void>(resolve => {
           this.currentDelayResolve = resolve;
@@ -802,50 +710,13 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
 
         this.closeMainPopup(currentMainPopup);
         currentMainPopup = null;
-        console.log("MAIN POPUP IMAGE");
-        console.log(church.imageKey);
-        console.log(church.imageIndex);
 
         this.realtimeService.moveMainPopupToSmallPopup(church);
-
-        // Determine the actual next church in our sequence rotation
-        const getNextChurchInSequence = (): ChurchData | null => {
-          if (totalTimeLeft - displayDuration > 0) {
-            return activityChurches[churchIndex % activityChurches.length];
-          }
-          
-          let nextActIdx = currentActivityIndex + 1;
-          for (let i = 0; i < enabledActivities.length; i++) {
-            const nextAct = enabledActivities[nextActIdx % enabledActivities.length];
-            const nextNames = keyToNamesMap[nextAct.key] || [];
-            const nextChurches = groupedChurches.filter(c => 
-              c && c.activity && nextNames.includes(c.activity) && c.latitude !== 0 && c.longitude !== 0
-            );
-            if (nextChurches.length > 0) {
-              return nextChurches[0];
-            }
-            nextActIdx++;
-          }
-          return null;
-        };
-
-        const nextChurch = getNextChurchInSequence();
-        if (nextChurch && (nextChurch.latitude !== church.latitude || nextChurch.longitude !== church.longitude)) {
-          await this.transitionBetweenCards(
-            [church.longitude, church.latitude],
-            [nextChurch.longitude, nextChurch.latitude],
-            2500
-          );
-        } else {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        this.isFlying = false;
+        lastDisplayedChurch = church;
 
         totalTimeLeft -= displayDuration;
       }
 
-      // Increment sequence index and show next
       if (this.slideshowRunId === currentRunId && this.isSlideshowRunning) {
         currentActivityIndex++;
         await showNextChurch();
@@ -871,28 +742,18 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     }
 
     this.isFlying = false;
-
     this.isMainPopupActive = false;
   }
 
-
-
   showChurches(): void {
-
     this.mapService.showChurches(
-
       this.churches,
-
       this.interactionState
-
     );
-
   }
 
   hideChurches(): void {
-
     this.mapService.hideChurches();
-
   }
 
   addMarkerWithHover(church: ChurchData, iconPath: string): mapboxgl.Marker {
@@ -907,20 +768,23 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
     const popup = new mapboxgl.Popup({ offset: 25, closeButton: false, closeOnClick: false })
       .setHTML(this.popupService.buildPopupCard(church));
 
-
     const map = this.mapService.getMap();
-
     if (!map) {
       throw new Error('Map not initialized');
     }
 
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat([church.longitude, church.latitude])
-      .addTo(map);
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([church.longitude, church.latitude]);
+
+    try {
+      if (map && typeof (map as any).getCanvasContainer === 'function') {
+        marker.addTo(map);
+      }
+    } catch (e) {
+      console.warn('Could not add marker to map:', e);
+    }
 
     el.addEventListener('mouseenter', () => {
-
-      // ✅ block hover popup during slideshow rotation
       if (this.isSlideshowRunning || this.isFlying || this.isMainPopupActive) {
         return;
       }
@@ -929,7 +793,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         church.longitude,
         church.latitude
       ]);
-
     });
 
     el.addEventListener('mouseleave', () => {
@@ -937,7 +800,6 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
         popup.remove();
       }
     });
-
 
     return marker;
   }
@@ -956,135 +818,84 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
   }
 
   private initializeSmallPopupListener(): void {
-
     this.latestPopupSubscription =
       this.realtimeService.latestSmallPopup$
         .subscribe(church => {
-
           if (!church) {
             return;
           }
-
           this.addSmallPopup(church);
-
         });
-
   }
 
-  private addSmallPopup(
-    church: ChurchData
-  ): void {
-
-    const map =
-      this.mapService.getMap();
-
+  private addSmallPopup(church: ChurchData): void {
+    const map = this.mapService.getMap();
     if (!map) {
       return;
     }
 
-    const key =
-      `${church.latitude}_${church.longitude}_${church.country}`;
+    const key = church.eventId 
+      ? `${church.eventId}` 
+      : `${church.latitude}_${church.longitude}_${church.country}_${church.timestamp || Math.random()}`;
 
-    if (
-      this.popupService.hasPopup(key)
-    ) {
+    if (this.popupService.hasPopup(key)) {
       return;
     }
 
-    const popup =
-      new mapboxgl.Popup({
+    const popup = new mapboxgl.Popup({
+      offset: 10,
+      closeButton: false,
+      className: 'small-popup'
+    })
+      .setHTML(this.popupService.buildSmallPopup(church))
+      .setLngLat([
+        church.longitude + 0.3 + (Math.random() - 0.5) * 0.4,
+        church.latitude + 0.3 + (Math.random() - 0.5) * 0.4
+      ])
+      .addTo(map);
 
-        offset: 10,
-
-        closeButton: false,
-
-        className: 'small-popup'
-
-      })
-
-        .setHTML(
-
-          this.popupService
-            .buildSmallPopup(church)
-
-        )
-
-        .setLngLat([
-
-          church.longitude + 0.3,
-
-          church.latitude + 0.3
-
-        ])
-
-        .addTo(map);
-
+    const group = this.realtimeService.isGroupA(church) ? 'A' : 'B';
     this.popupService.registerPopup(
       popup,
-      key
+      key,
+      group
     );
 
-    this.popupService.enforcePopupLimit(
-      this.showPastRecords
-    );
-
+    const halfA = Math.floor(this.showPastRecords / 2);
+    const halfB = this.showPastRecords - halfA;
+    this.popupService.enforceGroupLimits(halfA, halfB);
   }
 
   ngOnDestroy(): void {
-
-    // ----------------------------------
-    // Stop WebSocket
-    // ----------------------------------
-
     if (this.websocketSubscription) {
-
       this.websocketSubscription.unsubscribe();
-
     }
     this.websocketService.disconnect();
     this.stopSlideshow();
-
-
 
     this.popupService.destroy();
     if (this.latestPopupSubscription) {
       this.latestPopupSubscription.unsubscribe();
     }
-    // ----------------------------------
-    // Remove Map
-    // ----------------------------------
 
-    const map = this.mapService.getMap();
-
-    if (map) {
-      map.remove();
-    }
-
-    // ----------------------------------
-    // Stop Animation
-    // ----------------------------------
+    this.mapService.destroy();
 
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
 
-    // ----------------------------------
-    // Stop Timers
-    // ----------------------------------
+    if (this.settingsRefreshInterval) {
+      clearInterval(this.settingsRefreshInterval);
+    }
 
     if (this.quoteInterval) {
       clearInterval(this.quoteInterval);
     }
 
-    // ----------------------------------
-    // Remove Event Listeners
-    // ----------------------------------
-
     document.removeEventListener(
       'click',
       this.outsideClickHandler
     );
-
   }
 
   private handleOutsideClick() {

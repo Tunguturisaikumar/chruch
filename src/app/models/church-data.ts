@@ -46,4 +46,7 @@ export interface ChurchData {
 
   eventId?: string;
 
+  created_at?: string;
+
+  [key: string]: any;
 }
