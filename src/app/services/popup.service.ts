@@ -133,8 +133,8 @@ export class PopupService {
 
     return `
 <div style="
-width:160px;
-padding:10px;
+width:170px;
+padding:8px 10px;
 border-radius:12px;
 overflow:hidden;
 ${bgStyle}
@@ -145,9 +145,10 @@ font-family:sans-serif;
 
 <div style="
 width:100%;
-height:100px;
+height:85px;
 overflow:hidden;
-margin-bottom:8px;
+margin-bottom:6px;
+border-radius:8px;
 ">
 <img
 src="${personImg}"
@@ -162,35 +163,37 @@ display:block;
 
 <div style="
 display:grid;
-grid-template-columns:70px 1fr;
-row-gap:4px;
-align-items:start;
+grid-template-columns:auto 1fr;
+column-gap:6px;
+row-gap:3px;
+align-items:baseline;
 ">
 
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Country:
 </span>
-<span style="font-weight:700;">
+<span style="font-weight:700; font-size:12px; color:#111827; word-break:break-word; line-height:1.25;">
 ${church.country}
 </span>
 
 ${this.isValidLanguage(church.language) ? `
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Language:
 </span>
-<span style="font-weight:700;">
+<span style="font-weight:700; font-size:12px; color:#111827; word-break:break-word; line-height:1.25;">
 ${church.language}
 </span>
 ` : ''}
 
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Activity:
 </span>
 <span style="
 font-weight:700;
+font-size:12px;
+color:#111827;
 word-break:break-word;
-line-height:1.35;
-display:inline-block;
+line-height:1.25;
 ">
 ${displayActivity}
 </span>
@@ -236,8 +239,8 @@ ${displayActivity}
 
     return `
 <div style="
-width:160px;
-padding:10px;
+width:170px;
+padding:8px 10px;
 border-radius:12px;
 overflow:hidden;
 ${bgStyle}
@@ -248,9 +251,10 @@ font-family:sans-serif;
 
 <div style="
 width:100%;
-height:100px;
+height:85px;
 overflow:hidden;
-margin-bottom:6px;
+margin-bottom:4px;
+border-radius:8px;
 ">
 <img
 src="${personImg}"
@@ -267,10 +271,10 @@ ${count > 0 ? `
 <div style="
 width:100%;
 text-align:center;
-margin:2px 0 8px 0;
+margin:0 0 6px 0;
 font-weight:600;
-font-size:12px;
-color:#374151;
+font-size:11px;
+color:#4b5563;
 ">
 & ${count} ${count === 1 ? 'other' : 'others'}
 </div>
@@ -278,35 +282,37 @@ color:#374151;
 
 <div style="
 display:grid;
-grid-template-columns:70px 1fr;
-row-gap:4px;
-align-items:start;
+grid-template-columns:auto 1fr;
+column-gap:6px;
+row-gap:3px;
+align-items:baseline;
 ">
 
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Country:
 </span>
-<span style="font-weight:700;">
+<span style="font-weight:700; font-size:12px; color:#111827; word-break:break-word; line-height:1.25;">
 ${church.country}
 </span>
 
 ${this.isValidLanguage(church.language) ? `
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Language:
 </span>
-<span style="font-weight:700;">
+<span style="font-weight:700; font-size:12px; color:#111827; word-break:break-word; line-height:1.25;">
 ${church.language}
 </span>
 ` : ''}
 
-<span style="font-weight:600;">
+<span style="font-weight:600; font-size:12px; color:#4b5563; white-space:nowrap;">
 Activity:
 </span>
 <span style="
 font-weight:700;
+font-size:12px;
+color:#111827;
 word-break:break-word;
-line-height:1.35;
-display:inline-block;
+line-height:1.25;
 ">
 ${displayActivity}
 </span>

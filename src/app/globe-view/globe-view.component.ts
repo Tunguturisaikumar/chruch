@@ -448,27 +448,32 @@ export class GlobeViewComponent implements OnInit, OnDestroy {
           let currentLng: number;
           let currentLat: number;
           let currentZoom: number;
+          let currentOffsetY = 0;
 
           if (progress < 0.33) {
             const phaseProgress = progress / 0.33;
             currentLng = fromLngLat[0];
             currentLat = fromLngLat[1];
             currentZoom = startZoom - (startZoom - 1.5) * phaseProgress;
+            currentOffsetY = -145 * (1 - phaseProgress);
           } else if (progress < 0.66) {
             const phaseProgress = (progress - 0.33) / 0.33;
             currentLng = fromLngLat[0] + (toLngLat[0] - fromLngLat[0]) * phaseProgress;
             currentLat = fromLngLat[1] + (toLngLat[1] - fromLngLat[1]) * phaseProgress;
             currentZoom = 1.5;
+            currentOffsetY = 0;
           } else {
             const phaseProgress = (progress - 0.66) / 0.34;
             currentLng = toLngLat[0];
             currentLat = toLngLat[1];
             currentZoom = 1.5 + (targetZoom - 1.5) * phaseProgress;
+            currentOffsetY = -145 * phaseProgress;
           }
 
-          map.jumpTo({
+          (map as any).jumpTo({
             center: [currentLng, currentLat],
             zoom: currentZoom,
+            offset: [0, currentOffsetY],
             bearing: 0,
             pitch: 0
           });

@@ -658,7 +658,7 @@ export class MapService {
 
             curve: 1.2,
 
-            offset: [0, 130],
+            offset: [0, -145],
 
             essential: true
 

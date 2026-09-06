@@ -423,9 +423,10 @@
   object-fit: contain;
 }
 
-/* Map popup z-index tuning (unchanged) */
+/* Map popup z-index & positioning */
 .mapboxgl-popup.main-popup {
   z-index: 1000 !important;
+  margin-top: 145px !important;
 }
 .mapboxgl-popup.small-popup {
   z-index: 500 !important;
